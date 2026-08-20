@@ -4,8 +4,10 @@ Everything on this page is transcribed from BTC's own emails, task documents and
 **scoring code**, not inferred. Each item names its source so you can re-check it.
 Where this page and any other page in the repo disagree, **this page wins.**
 
-Verified 20/08/2026 against the DSC@UIT mail thread and the vendored scoring
-programs in [`phases/0_harness/btc_eval/`](../../phases/0_harness/btc_eval/).
+Verified 20/08/2026 against the DSC@UIT mail thread (through the 20/08 Q&A
+email), the vendored scoring programs in
+[`phases/0_harness/btc_eval/`](../../phases/0_harness/btc_eval/) — byte-identical
+to BTC's published copies — and the real Task 1 Public Test data.
 
 ---
 
@@ -49,7 +51,7 @@ Contact `dsc@uit.edu.vn`; system faults go on the Codabench forum.
 | File | Content |
 |---|---|
 | `train.json` | training questions |
-| `public_official.json` | Public Test questions |
+| `public-official.json` | Public Test questions (note the **hyphen**) |
 | `selected-contexts.zip` | corpus — many `context_*.json` |
 | `DSC2026_Task1_LegalIR_Data_Overview.docx` | the task document |
 
@@ -65,6 +67,31 @@ Questions (`train.json`) — a JSON **object keyed by question id**:
 So gold labels are **whole-document ids**. Retrieve at any granularity you like,
 but you must aggregate back to the document id before submitting
 (`--aggregate max`).
+
+**The id type trap.** In `context_*.json` the id is a JSON **integer**
+(`"id": 740`). In `train.json` the gold answers are JSON **strings**
+(`["177504"]`). BTC's scorer intersects the two raw sets, and
+`{740} & {"740"} == set()`. Submit integer ids and every question scores **0.0
+on both metrics with no error message at all**. Always `str()` your doc_ids —
+`ingest.py` does it, and `metrics.check_submittable()` now refuses a submission
+that contains non-strings.
+
+**Empty and duplicate passages** (source: BTC email, 20/08). BTC confirms the
+**train** corpus contains some documents with an empty `passage` and some
+duplicated passages; **public test and private test answers contain neither**.
+Teams are told to preprocess train carefully. Measured on the Public Test drop:
+
+| | count | effect |
+|---|---|---|
+| documents with an empty passage | 20 | unretrievable by content |
+| of those, gold for some train question | 6 | |
+| train questions with only empty gold | 9 | local train recall ceiling **0.9987** |
+| exact-duplicate passage groups | 4 (9 docs) | affects 4 train questions |
+
+`ingest.py --validate` reports both and writes
+`data/processed/quarantine_queries_train.jsonl`. Exclude those questions when
+mining training pairs — a positive pair whose document is empty teaches noise —
+and subtract them before comparing your local recall against a leaderboard score.
 
 ### Submission format
 ```json
@@ -145,6 +172,23 @@ Source: BTC's consolidated Q&A email, 02/08.
 - **BTC data only. No data augmentation. No external data.**
   - Clarification: a pretrained model's own training corpus does **not** count as
     external data — you are using an estimator, not the corpus.
+- **No cross-task data use** (source: BTC email, **20/08** — newest rule).
+  > "Do hai tác vụ được triển khai độc lập, không giao nhau về câu hỏi cũng như
+  > context nên các nhóm **không được** sử dụng dữ liệu của tác vụ này cho tác vụ kia."
+
+  The two tasks are independent and share neither questions nor contexts, so
+  Task 1 data may not be used for Task 2 and vice versa. What this rules out in
+  this repo, concretely:
+
+  | | verdict |
+  |---|---|
+  | Phase 2/3 bi-encoder or reranker **checkpoint** fine-tuned on Task 1 pairs, reused for Task 2 | **forbidden** — the weights are Task 1 data |
+  | Retrieving Task 2 questions over Task 1's `corpus_*.jsonl` | **forbidden** — Task 2 ships its own `selected-contexts.zip` |
+  | The same off-the-shelf pretrained model, loaded fresh and fine-tuned on Task 2 data only | allowed |
+  | The same *method* — chunking scheme, k1/b, fusion weights, cutoff rule | allowed, a recipe is not data |
+
+  `phases/4_task2_qa/retrieval_stage.py` enforces the two detectable cases and
+  exits 2. Keep Task 1 and Task 2 checkpoints in separate directories.
 - **Packaging:** Docker is optional. GitHub or a zip is fine. Downloading weights
   from the internet at run time is fine, provided they are open/non-commercial.
   What matters is a README with step-by-step reproduction that BTC can follow.

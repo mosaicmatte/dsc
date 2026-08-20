@@ -305,6 +305,26 @@ def test_H_chunking():
     check("H: document granularity is a no-op",
           len(chunking.build_corpus([doc], "document", min_chars=1)) == 1)
 
+    # REGRESSION (found on the real corpus, 20/08/2026): an amending decree
+    # restates "Điều 1" once per law it touches — document 224467 does it 49
+    # times. Labels are not unique within a document, so bare "{pid}#dieu1"
+    # collided 10,199 times and io_utils.load_corpus rejected the whole corpus.
+    rep = {"doc_id": "224467", "meta": {},
+           "text": "Điều 1. sửa A\nĐiều 2. x\nĐiều 1. sửa B\nĐiều 1. sửa C"}
+    rc = chunking.build_corpus([rep], "article", min_chars=1)
+    rids = [r["doc_id"] for r in rc]
+    check("H: repeated điều labels get unique chunk ids",
+          len(rids) == len(set(rids)) == 4, str(rids))
+    check("H: the first occurrence keeps the unsuffixed id",
+          rids[0] == "224467#dieu1", str(rids))
+    check("H: repeats still map to the same parent",
+          set(chunking.parent_map(rc).values()) == {"224467"})
+    check("H: a 5000-article document produces 5000 distinct ids",
+          len({r["doc_id"] for r in chunking.build_corpus(
+              [{"doc_id": "x", "meta": {},
+                "text": "\n".join("Điều 1. body" for _ in range(5000))}],
+              "article", min_chars=1)}) == 5000)
+
 
 def test_I_property():
     section("I. Randomised property tests")

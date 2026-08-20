@@ -163,8 +163,11 @@ Answer without looking. Key in [`self_check.md`](self_check.md) — try first, t
 - [ ] you can state the 5-document cap and what happens if you exceed it
 - [ ] `data/processed/` populated, `ingest.py --validate` passes
 - [ ] `evaluate.py` reproduces BTC's score exactly
-- [ ] dev split written to `data/processed/queries_dev.jsonl` with a fixed seed
-- [ ] `analysis/dataset_stats.md` written
+- [ ] dev split written to `data/processed/queries_dev.jsonl` —
+      `python phases/0_harness/build_dev_split.py` (seed 42, stratified by gold
+      count, and it now drops the 9 questions whose gold passage is empty)
+- [ ] `analysis/dataset_stats.md` written — start from `python tools/data_facts.py`, which
+      regenerates every table in [`docs/reference/10_data_facts.md`](../../docs/reference/10_data_facts.md)
 - [ ] `work/experiments/runs.csv` exists (even if empty)
 - [ ] `python tests/test_cases.py` passes (110 cases: scoring parity with BTC,
       the 5-cap, degenerate input, loss attribution, cutoff, normalisation)

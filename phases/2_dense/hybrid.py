@@ -55,7 +55,11 @@ def main():
     ap.add_argument("--rrf-k", type=int, default=60)
     ap.add_argument("--norm", default="minmax", choices=["minmax", "zscore", "sum"])
     ap.add_argument("--depth", type=int, default=100)
-    ap.add_argument("--cutoff", default="ratio")
+    # Default top_k/5, not ratio/10. 92% of questions have exactly ONE gold
+    # document, recall is the primary metric, and recall never decreases with
+    # more ids up to BTC's cap of 5 — so 5 is optimal and k>5 zeroes the
+    # question. See docs/reference/10_data_facts.md §2.
+    ap.add_argument("--cutoff", default="top_k")
     ap.add_argument("--alpha", type=float, default=0.85)
     ap.add_argument("--sweep", action="store_true", help="tune the dense weight on dev")
     ap.add_argument("--run-id", default=None)

@@ -18,6 +18,17 @@ question ──► [retriever] ──► top-100 ──► [reranker] ──► 
 in the top-k, no reader can produce a grounded answer — it will hallucinate something
 plausible instead, and you will spend two days blaming the generator.
 
+> ### ⚠ Task 1 data may not be used here (BTC email, 20/08/2026)
+> BTC ruled that the two tasks are independent and share neither questions nor
+> contexts, so **you may not use Task 1 data for Task 2 or vice versa**. In this
+> phase that means: do **not** load a Phase 2/3 checkpoint fine-tuned on Task 1
+> pairs, and do **not** retrieve over Task 1's corpus. Task 2 ships its own
+> `selected-contexts.zip` — ingest it separately to
+> `data/processed/task2_corpus.jsonl`. Reusing the *method* (chunking scheme,
+> hyper-parameters, fusion weights) is fine; a recipe is not data.
+> `retrieval_stage.py` refuses the detectable violations. Full text:
+> [`09_official_rules.md` §6](../../docs/reference/09_official_rules.md).
+
 So: **measure retrieval quality on the Task 2 data separately, before touching the reader.**
 Task 2's questions are not the same distribution as Task 1's queries — they may be longer,
 more conversational, or reference a scenario rather than a statute. A retriever tuned on

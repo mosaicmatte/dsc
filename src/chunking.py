@@ -116,7 +116,18 @@ def build_corpus(
                     for clab, ctext in split_clauses(atext):
                         pieces.append((f"{pid}#dieu{lab}#khoan{clab}", ctext))
 
+        # A real Vietnamese legal document can carry the same article number many
+        # times over — an amending decree restates "Điều 1" once per law it
+        # touches (document 224467 does it 49 times). Labels are therefore NOT
+        # unique within a document, and a bare "{pid}#dieu1" collides. Suffix the
+        # repeats so every chunk keeps a distinct id; parent_id is untouched, so
+        # aggregation back to the document is unaffected.
+        seen: Dict[str, int] = {}
         for cid, ctext in pieces:
+            n = seen.get(cid, 0)
+            seen[cid] = n + 1
+            if n:
+                cid = f"{cid}@{n}"
             ctext = ctext.strip()
             if len(ctext) < min_chars:
                 continue

@@ -167,6 +167,18 @@ def check_submittable(predictions: Dict[str, Sequence[str]],
     if empty:
         problems.append(f"{len(empty)} questions have an empty prediction "
                         f"(e.g. {empty[:5]}) — each scores ZERO; raise min_k")
+    # BTC's gold doc_ids are JSON *strings* ("280282") while the corpus files
+    # carry them as JSON *ints* ("id": 740). Their scorer intersects raw sets:
+    # {740} & {"740"} == set(). Ints therefore score a silent, total zero — no
+    # error, no warning, just 0.0 on both metrics. Confirmed against the real
+    # public-test data on 20/08/2026.
+    nonstr = [q for q, v in predictions.items()
+              if any(not isinstance(d, str) for d in v)]
+    if nonstr:
+        problems.append(f"{len(nonstr)} questions predict non-string doc_ids "
+                        f"(e.g. {nonstr[:5]}) — BTC's gold ids are strings, so "
+                        f"the set intersection is EMPTY and every such question "
+                        f"scores 0 with no error message. Cast with str().")
     return problems
 
 

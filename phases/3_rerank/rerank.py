@@ -50,9 +50,13 @@ def main():
     ap.add_argument("--depth", type=int, default=50)
     ap.add_argument("--batch-size", type=int, default=64)
     ap.add_argument("--max-length", type=int, default=512)
-    ap.add_argument("--cutoff", default="ratio")
+    # Default top_k/5, not ratio/10. 92% of questions have exactly ONE gold
+    # document, recall is the primary metric, and recall never decreases with
+    # more ids up to BTC's cap of 5 — so 5 is optimal and k>5 zeroes the
+    # question. See docs/reference/10_data_facts.md §2.
+    ap.add_argument("--cutoff", default="top_k")
     ap.add_argument("--alpha", type=float, default=0.85)
-    ap.add_argument("--k", type=int, default=10)
+    ap.add_argument("--k", type=int, default=5)
     ap.add_argument("--run-id", default=None)
     ap.add_argument("--device", default=None)
     a = ap.parse_args()

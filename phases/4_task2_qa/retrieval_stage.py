@@ -11,6 +11,27 @@ Task 2 questions are NOT the same distribution as Task 1 queries: often longer,
 more scenario-shaped, less likely to quote statute numbers verbatim. A retriever
 tuned on Task 1 may transfer poorly. Find that out as a number, now.
 
+RULE — READ THIS BEFORE YOU PASS --model (BTC email, 20/08/2026)
+----------------------------------------------------------------
+    "Do hai tac vu duoc trien khai doc lap, khong giao nhau ve cau hoi cung nhu
+     context nen cac nhom *khong duoc* su dung du lieu cua tac vu nay cho tac
+     vu kia."
+
+Task 1 data may NOT be used for Task 2, and vice versa. Concretely:
+
+  * FORBIDDEN — a bi-encoder or reranker checkpoint fine-tuned in Phase 2/3 on
+    Task 1 (question, document) pairs. Those weights ARE Task 1 data.
+  * FORBIDDEN — retrieving over Task 1's corpus (corpus_document.jsonl /
+    corpus_article.jsonl). Task 2 ships its own selected-contexts.zip; use it.
+  * ALLOWED — the same off-the-shelf pretrained model, loaded fresh from the Hub
+    and fine-tuned on Task 2 data only.
+  * ALLOWED — the same *method*: chunking scheme, hyper-parameters, fusion
+    weights, cutoff rule. A recipe is not data.
+
+The guard below refuses the violations detectable from the command line. It
+cannot read your mind about a local checkpoint path, so keep Task 1 and Task 2
+checkpoints in separate directories and name them accordingly.
+
 WHAT TO RECORD
 --------------
 recall@1, @3, @5 — these are the ceilings for a reader given 1, 3 or 5 passages.
@@ -20,6 +41,7 @@ the generator does, and no prompt engineering will move them.
 USAGE
   python phases/4_task2_qa/retrieval_stage.py \
       --queries data/processed/task2_dev.jsonl \
+      --corpus  data/processed/task2_corpus.jsonl \
       --model AITeamVN/Vietnamese_Embedding \
       --reranker AITeamVN/Vietnamese_Reranker --depth 100 --rerank-depth 50
 """
@@ -35,12 +57,49 @@ sys.path.insert(0, os.path.abspath(  # repo root: phases/<n>_<name>/ -> ../..
 from src import dense, exp_log, io_utils, metrics, normalize  # noqa: E402
 
 
+# BTC forbids using Task 1 data for Task 2 (email 20/08/2026). These are the
+# violations detectable from the command line alone.
+TASK1_CORPUS_MARKERS = ("corpus_document", "corpus_article", "corpus_chunk")
+TASK1_MODEL_MARKERS = ("task1", "phase2", "phase3", "legalir",
+                       "/1_bm25/", "/2_dense/", "/3_rerank/")
+
+
+def _guard_cross_task(a) -> None:
+    bad = []
+    if any(m in a.corpus for m in TASK1_CORPUS_MARKERS):
+        bad.append("--corpus " + a.corpus + " is Task 1's corpus")
+    for flag, val in (("--model", a.model), ("--reranker", a.reranker)):
+        if val and any(m in val.lower() for m in TASK1_MODEL_MARKERS):
+            bad.append(flag + " " + val + " looks like a Task 1 checkpoint")
+    if not bad:
+        return
+    if a.i_confirm_not_task1_data:
+        for b in bad:
+            print("[cross-task guard OVERRIDDEN] " + b, file=sys.stderr)
+        return
+    print("CROSS-TASK DATA VIOLATION — BTC email 20/08/2026: Task 1 data may "
+          "not be used for Task 2.", file=sys.stderr)
+    for b in bad:
+        print("  * " + b, file=sys.stderr)
+    print("\nUse Task 2's own contexts and a model that has never seen Task 1 "
+          "data.\nIf this is a false positive (an unlucky directory name), "
+          "re-run with\n--i-confirm-not-task1-data.", file=sys.stderr)
+    raise SystemExit(2)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--queries", default="data/processed/task2_dev.jsonl")
-    ap.add_argument("--corpus", default="data/processed/corpus_article.jsonl")
-    ap.add_argument("--model", required=True, help="bi-encoder from Task 1")
+    ap.add_argument("--corpus", default="data/processed/task2_corpus.jsonl",
+                    help="Task 2's OWN contexts. Task 1's corpus is off-limits "
+                         "(BTC 20/08/2026).")
+    ap.add_argument("--model", required=True,
+                    help="bi-encoder. Must NOT be a checkpoint fine-tuned on "
+                         "Task 1 data — use an off-the-shelf pretrained model, "
+                         "or one fine-tuned on Task 2 data only.")
+    ap.add_argument("--i-confirm-not-task1-data", action="store_true",
+                    help="override the cross-task guard (you had better be right)")
     ap.add_argument("--registry-as", default=None)
     ap.add_argument("--reranker", default=None)
     ap.add_argument("--reranker-as", default=None)
@@ -50,6 +109,8 @@ def main():
     ap.add_argument("--run-id", default="task2-retrieval")
     ap.add_argument("--device", default=None)
     a = ap.parse_args()
+
+    _guard_cross_task(a)
 
     fmt = a.registry_as or a.model
     queries = io_utils.load_queries(a.queries)

@@ -1,1 +1,4 @@
 run_id,date,task,phase,chunking,retriever,negatives,reranker,cutoff_rule,dev_P,dev_R,dev_official,leaderboard,n_params,config,git_tag,seed,notes
+bm25-article-publictest,2026-08-20,1,1,,,,,top_k:5,,,,PENDING,,,,,"SUBMITTED bm25-article-publictest.zip; BM25 article-chunked, k1=1.2 b=0.75, agg=max, dev R=0.7410"
+bm25-doc-real,2026-08-20,1,1,document,"bm25(k1=1.2,b=0.75,seg=none,agg=None)",-,-,top_k:5,0.0784,0.3680,0.3680,,0,,,,recall@100=0.7271
+bm25-article-real,2026-08-20,1,1,article,"bm25(k1=1.2,b=0.75,seg=none,agg=max)",-,-,top_k:5,0.1575,0.7410,0.7410,,0,,,,recall@100=0.9395

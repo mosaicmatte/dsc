@@ -252,10 +252,17 @@ def validate(corpus_path=f"{PROC}/corpus_document.jsonl",
     doc_ids, texts, _ = io_utils.load_corpus(corpus_path)
     ids = set(doc_ids)
     print(f"corpus: {len(doc_ids)} docs, {len(ids)} unique ids")
-    empty = sum(1 for t in texts if not t.strip())
-    if empty:
-        print(f"  FAIL: {empty} documents have empty text")
-        ok = False
+    # BTC (email 20/08/2026): the TRAIN corpus genuinely contains a few documents
+    # with an empty passage, and a few duplicated passages. The public-test and
+    # private-test answers do not. So an empty document is expected data, not a
+    # broken ingest — it is a WARN, and the number to watch is how many *gold*
+    # documents are empty, because those questions are unanswerable by content
+    # and form a hard ceiling on recall.
+    empty_ids = {d for d, t in zip(doc_ids, texts) if not t.strip()}
+    if empty_ids:
+        print(f"  WARN: {len(empty_ids)} documents have an empty passage "
+              f"(expected on train — BTC confirmed 20/08/2026), "
+              f"e.g. {sorted(empty_ids)[:5]}")
     for qp in query_paths:
         if not os.path.exists(qp):
             continue
@@ -279,6 +286,23 @@ def validate(corpus_path=f"{PROC}/corpus_document.jsonl",
         if norel:
             print(f"  WARN: {len(norel)} queries with no relevant docs "
                   f"(check whether this is a labelling gap or intentional)")
+        # Questions whose ONLY gold documents are empty can never be answered by
+        # any retriever. Quarantine them from training pairs and subtract them
+        # from your local ceiling, or you will chase an unreachable recall.
+        unreachable = [q["qid"] for q in qs
+                       if q["relevant"] and set(q["relevant"]) <= empty_ids]
+        if unreachable:
+            print(f"  WARN: {len(unreachable)} queries whose every gold document "
+                  f"has an empty passage — unretrievable by content, "
+                  f"local recall ceiling is "
+                  f"{1 - len(unreachable)/max(len(qs),1):.4f}, "
+                  f"e.g. {unreachable[:5]}")
+            qf = os.path.join(os.path.dirname(qp), "quarantine_" +
+                              os.path.basename(qp))
+            with open(qf, "w", encoding="utf-8") as fh:
+                for q in unreachable:
+                    fh.write(q + "\n")
+            print(f"        wrote {qf} — exclude these when mining training pairs")
     print("VALIDATE:", "PASS" if ok else "FAIL")
     return ok
 

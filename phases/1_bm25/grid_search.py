@@ -48,9 +48,13 @@ def main():
     ap.add_argument("--b", type=float, nargs="+", default=[0.3, 0.5, 0.75, 1.0])
     ap.add_argument("--depth", type=int, default=100)
     ap.add_argument("--aggregate", default=None, choices=[None, "max", "sum", "mean"])
-    ap.add_argument("--cutoff", default="ratio")
+    # Default top_k/5, not ratio/10. 92% of questions have exactly ONE gold
+    # document, recall is the primary metric, and recall never decreases with
+    # more ids up to BTC's cap of 5 — so 5 is optimal and k>5 zeroes the
+    # question. See docs/reference/10_data_facts.md §2.
+    ap.add_argument("--cutoff", default="top_k")
     ap.add_argument("--alpha", type=float, default=0.85)
-    ap.add_argument("--k", type=int, default=10)
+    ap.add_argument("--k", type=int, default=5)
     ap.add_argument("--metric", default="official",
                     help="'official' (recall, precision tiebreak) or e.g. recall@100")
     ap.add_argument("--out", default="work/analysis/bm25_grid.md")

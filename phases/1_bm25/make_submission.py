@@ -73,9 +73,13 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--run", required=True)
     ap.add_argument("--queries", default="data/processed/queries_public_test.jsonl")
-    ap.add_argument("--cutoff", default="ratio",
+    # Default top_k/5, not ratio/10. 92% of questions have exactly ONE gold
+    # document, recall is the primary metric, and recall never decreases with
+    # more ids up to BTC's cap of 5 — so 5 is optimal and k>5 zeroes the
+    # question. See docs/reference/10_data_facts.md §2.
+    ap.add_argument("--cutoff", default="top_k",
                     choices=["top_k", "ratio", "threshold", "gap"])
-    ap.add_argument("--k", type=int, default=10)
+    ap.add_argument("--k", type=int, default=5)
     ap.add_argument("--alpha", type=float, default=0.85)
     ap.add_argument("--min-k", type=int, default=1)
     ap.add_argument("--max-k", type=int, default=5,

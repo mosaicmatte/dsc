@@ -68,7 +68,7 @@ def main():
     ap.add_argument("--gold", default=DEFAULT_GOLD)
     ap.add_argument("--cutoff", default="top_k",
                     choices=["top_k", "ratio", "threshold", "gap"])
-    ap.add_argument("--k", type=int, default=10)
+    ap.add_argument("--k", type=int, default=5)
     ap.add_argument("--alpha", type=float, default=0.85)
     ap.add_argument("--tau", type=float, default=0.0)
     ap.add_argument("--min-k", type=int, default=1)
