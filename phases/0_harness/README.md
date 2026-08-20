@@ -50,9 +50,14 @@ This is what [`src/cutoff.py`](../../src/cutoff.py) is for, and why every later 
 re-sweeps the cutoff after every change. The score distribution moves whenever the
 model does, so yesterday's optimal cutoff is not today's.
 
-The obvious exploit — return the entire corpus for every query — gives Recall = 1.0 and
-Precision ≈ 0. Whether that is actually possible is exactly what Task A5 below makes you
-check in BTC's source code.
+**And BTC caps the answer set at 5.** Their scorer gives a question **zero on both
+metrics** if it returns more than 5 document ids (or none). So the "return everything"
+exploit is closed, and the real problem is sharper and more interesting: you have exactly
+**five slots per question**, and Precision breaks ties. Spend one slot where the retriever
+is confident (precision 1.0 at no recall cost) and all five where it is not.
+
+That is why `src/cutoff.py` clamps to 1..5 and refuses a larger `max_k`.
+See [`docs/reference/09_official_rules.md`](../../docs/reference/09_official_rules.md) §4.
 
 ### A3. Micro vs macro averaging
 
@@ -108,7 +113,10 @@ from your page alone.
 
 ### Task B2 — Read BTC's evaluation source line by line
 → answer the questions in [`02_eval_code_notes.md`](02_eval_code_notes.md) **in writing**
-Not skimmed. Line by line, both tasks.
+
+Their scoring programs are already vendored verbatim in
+[`btc_eval/`](btc_eval/) — read `scoring_legalir.py`; it is 40 lines and the two
+lines that compute recall and precision decide your entire cutoff strategy.
 **Done when:** all four questions are answered with a line reference into their code.
 
 ### Task B3 — Ingest raw data into canonical format
@@ -117,10 +125,10 @@ This is the **only** file in the repo that knows BTC's raw layout. Keep it that 
 **Done when:** `data/processed/corpus_document.jsonl` and `queries_train.jsonl` exist
 and `ingest.py --validate` passes.
 
-### Task B4 — Wrap their evaluator
-→ `python phases/0_harness/evaluate.py --help`
-**Done when:** one command scores a prediction file, and our reimplementation agrees
-with BTC's official code to 1e-9 on the same input.
+### Task B4 — Verify our scorer against theirs
+→ `python phases/0_harness/evaluate.py --run <run> --cross-check`
+Already wired: it scores the same predictions through BTC's vendored code and ours.
+**Done when:** `--cross-check` prints `AGREE` on your own data.
 
 ### Task B5 — Build the stratified dev split
 → `python phases/0_harness/build_dev_split.py`
@@ -152,7 +160,7 @@ Answer without looking. Key in [`self_check.md`](self_check.md) — try first, t
 - [ ] Models registered on the BTC form
 - [ ] `01_schema_summary.md` filled in
 - [ ] `02_eval_code_notes.md` answered with line references
-- [ ] `src/metrics.py:OFFICIAL_AVERAGING` set to the confirmed value
+- [ ] you can state the 5-document cap and what happens if you exceed it
 - [ ] `data/processed/` populated, `ingest.py --validate` passes
 - [ ] `evaluate.py` reproduces BTC's score exactly
 - [ ] dev split written to `data/processed/queries_dev.jsonl` with a fixed seed

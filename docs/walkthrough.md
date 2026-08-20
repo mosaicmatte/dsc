@@ -4,9 +4,9 @@
 > corpus lands you are debugging *the data*, not the tooling. Every command below works
 > right now, on a fixture generated locally.
 
-The fixture is 16 synthetic Vietnamese decrees (5 điều each) and 60 questions, shaped like
-BTC's files are likely to be: nested JSON, Vietnamese field names, relevance labels that
-are sometimes a string and sometimes a list.
+The fixture is 16 synthetic Vietnamese decrees (5 điều each) and 60 questions, in BTC's
+**actual** shapes: a `selected-contexts.zip` of `context_*.json` records, and question
+files that are JSON objects keyed by question id.
 
 **It is not a difficulty proxy.** BM25 scores near-perfect recall on it and will not on
 real data. Use it to learn the mechanics only.
@@ -23,14 +23,14 @@ python tools/make_fixture.py --out data/fixture
 16 documents · 60 Task 1 queries · 60 Task 2 questions · 20 unlabelled test queries
 ```
 
-Open `data/fixture/corpus.json` and read one record before continuing. You should be able
-to name the id field, the text field and the title field by eye. That is exactly the skill
-Phase 0 Task B1 asks for on the real data.
+Open one `context_*.json` inside `data/fixture/selected-contexts.zip` and read it before
+continuing. Its fields — `id`, `name`, `link`, `passage` — are exactly what BTC ships.
 
 ## Step 1 — inspect before ingesting
 
 ```bash
-python phases/0_harness/ingest.py --inspect --raw-corpus data/fixture/corpus.json
+python phases/0_harness/ingest.py --inspect \
+    --raw-corpus data/fixture/selected-contexts.zip
 ```
 
 `--inspect` prints the detected keys and one full record, and writes nothing. **Always run
@@ -41,20 +41,21 @@ is how a day disappears.
 
 ```bash
 python phases/0_harness/ingest.py \
-    --raw-corpus  data/fixture/corpus.json \
+    --raw-corpus  data/fixture/selected-contexts.zip \
     --raw-queries data/fixture/train.json \
-    --raw-test    data/fixture/public_test.json \
+    --raw-test    data/fixture/public_official.json \
     --out-dir     data/fixture/processed
 ```
 
 ```
-[corpus] 16 records -> .../corpus_document.jsonl  (id=law_id, text=noi_dung, title=tieu_de)
-[queries:train] 60 records -> .../queries_train.jsonl  (qid=question_id, query=cau_hoi, rel=relevant_id)
+  read 16 records from 16 context file(s)
+[corpus] 16 records -> .../corpus_document.jsonl  (id=id, text=passage, title=name)
+[queries:train] 60 records -> .../queries_train.jsonl  (qid=__key__, query=question, rel=answer)
 [queries:public_test] 20 records -> .../queries_public_test.jsonl  (rel=None)
 ```
 
-Note it auto-detected Vietnamese field names, unwrapped `{"data": [...]}`, and coped with
-`relevant_id` being a string on some records and a list on others.
+Note it unzipped the corpus, and that `qid=__key__` — BTC's question files are objects
+keyed by id, so the key *is* the question id.
 
 **Check the detected mapping in that output every time.** It is the single highest-risk
 line in the whole pipeline: a wrong `text` field produces an empty index and a plausible
@@ -120,13 +121,11 @@ python phases/1_bm25/bm25_baseline.py \
 
 | | avg set size | Recall | Precision |
 |---|---|---|---|
-| document | 1.33 | 0.9167 | **0.8889** |
-| article + `--aggregate max` | 2.00 | 0.9167 | 0.7500 |
+| article + `--aggregate max` | 1.50 | 0.9167 | **0.8750** |
 
-**Read this properly, it is the point of the exercise.** Identical recall; document level
-wins on precision *only because its answer sets came out smaller under the same α*. That
-is not a statement about granularity — it is a statement about the cutoff interacting with
-a different score distribution. On real data you must re-sweep the cutoff for each
+**Read this properly, it is the point of the exercise.** When two granularities differ in
+precision at the same α, that is usually the cutoff interacting with a different score
+distribution — not a fact about granularity. On real data, re-sweep the cutoff for each
 granularity before comparing them, or you are comparing cutoffs, not chunkings.
 
 **Forget `--aggregate max` on chunked corpora and your submission contains ids like
@@ -142,14 +141,16 @@ python phases/1_bm25/cutoff_sweep.py --run experiments/runs/fx-doc.jsonl \
 
 ```
 rule       param   recall     prec       f1   |set|
+ratio       0.80   1.0000   0.5417   0.6444    3.00
+ratio       0.75   1.0000   0.4306   0.5611    3.33
+ratio       0.60   1.0000   0.4167   0.5444    3.50
 top_k          4   1.0000   0.2917   0.4444    4.00
-ratio       0.60   1.0000   0.2917   0.4444    4.00
-top_k          5   1.0000   0.2333   0.3730    5.00
-top_k          6   1.0000   0.1944   0.3214    6.00
 ```
 
-Recall never falls as the set grows; precision falls at every step. That asymmetry is the
-whole reason `src/cutoff.py` exists — see `phases/0_harness/self_check.md` Q2.
+Recall never falls as the set grows; precision falls at every step. **The sweep stops at
+5** because BTC zeroes any question returning more than 5 ids — and note the winner is a
+`ratio` rule with an average set of 3.0, not a fixed k. That is the variable-length answer
+set earning its keep: same recall as top-4, far better precision.
 
 ## Step 7 — build a submission, and make the classic mistake on purpose
 
@@ -159,13 +160,16 @@ python phases/1_bm25/make_submission.py --run experiments/runs/fx-doc.jsonl \
 ```
 
 ```
-PRE-FLIGHT WARNING: 18 queries have no prediction (e.g. ['q0','q1',...]) — they will score zero recall
-answer sets  : mean 0.10, min 0, max 1
+PRE-FLIGHT ERROR: 18 questions missing from the submission (e.g. ['147011', ...]) —
+BTC's scorer RAISES on this, the submission fails outright
+
+Refusing to write an invalid submission. Fix the above, or pass --force if you know better.
 ```
 
-**That is the error, and it is worth seeing once.** `fx-doc` was retrieved over the *dev*
-queries, so it has no rankings for the test queries. On Codabench this scores near zero and
-looks like a modelling failure. Retrieve over the split you are submitting:
+**That is the error, and it is worth seeing once.** The run was retrieved over the *dev*
+queries, so it has no rankings for the test questions. BTC's scorer raises on a key-count
+mismatch, so this does not score badly — the submission *fails*. The script refuses to
+write it. Retrieve over the split you are submitting:
 
 ```bash
 python phases/1_bm25/bm25_baseline.py \
@@ -177,8 +181,20 @@ python phases/1_bm25/make_submission.py --run experiments/runs/fx-test.jsonl \
 ```
 
 ```
-answer sets  : mean 1.40, min 1, max 4        (no warnings)
+answer sets  : mean 1.40, min 1, max 4        (no pre-flight errors)
 ```
+
+Inspect what actually goes to Codabench:
+
+```bash
+unzip -p /tmp/sub/fx-sub.zip submission.json | head -c 200
+```
+```json
+{"147011": {"answer": ["732"]}, "147027": {"answer": ["732", "730", "731", "733"]}}
+```
+
+A JSON object keyed by question id, at most 5 ids each. That is BTC's exact format —
+`phases/0_harness/btc_eval/scoring_legalir.py` reads it directly.
 
 Note that the test run reports *no scores* — the split is unlabelled. That is expected, not
 a failure.
@@ -196,7 +212,8 @@ run**, and whether it made the answer set. That rank column is the diagnosis:
 
 | rank of gold | meaning | fix |
 |---|---|---|
-| 1–3, not returned | cutoff problem | re-sweep α |
+| 1–5, not returned | cutoff problem | re-sweep α |
+| 6–20 | ranking problem, and **only 5 slots to fix it** | reranker |
 | 20–100 | ranking problem | reranker |
 | not in top-100 | retrieval problem | reranker cannot help |
 | not in corpus | harness bug | stop, fix ingest |
@@ -211,8 +228,12 @@ python phases/0_harness/build_dev_split.py \
     --prefix task2 --out-dir data/fixture/processed
 ```
 
-`--task 2` additionally detects the gold answer field and preserves any field it does not
-recognise, so a difficulty label or category tag survives ingest.
+`--task 2` picks up the gold **prose** answer (Task 2 answers are long structured text, not
+document ids) and preserves any field it does not recognise.
+
+Task 2 is scored by **METEOR** (primary) and ROUGE-L, both recall-weighted — so brevity is
+punished. `phases/4_task2_qa/prompts.py` includes a `mimic` variant that reproduces the
+reference answers' "Theo … quy định: - …" structure for exactly this reason.
 
 ## Step 10 — clean up
 
@@ -233,9 +254,10 @@ Or just leave it; `data/fixture/` is gitignored.
 
 1. Name the four canonical file formats and which script produces each.
 2. Explain why a run file and a prediction file are different things.
-3. Say what `--aggregate max` does and when omitting it silently zeroes a submission.
-4. Explain why recall never decreases as the answer set grows.
-5. Diagnose a failure from the rank of the gold document.
+3. State the maximum number of document ids per question, and what happens at 6.
+4. Say what `--aggregate max` does and why omitting it zeroes a submission.
+5. Explain why recall never decreases as the answer set grows.
+6. Diagnose a failure from the rank of the gold document.
 
 If any of those is shaky, re-read the relevant phase README's **Learn** section — that is
 what it is there for.

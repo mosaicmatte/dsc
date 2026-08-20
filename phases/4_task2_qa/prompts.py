@@ -10,9 +10,11 @@ Design notes, so the variants are a controlled experiment rather than a pile:
 * ``cited``    — requires naming the source điều. Makes a wrong citation visible,
                  which is worth points if the metric rewards grounding and worth
                  error analysis regardless.
-* ``concise``  — constrains answer length. Matters when the metric is token-F1:
-                 a long correct answer is penalised on precision against a short
-                 gold string.
+* ``concise``  — constrains answer length. NOTE: the official metric is METEOR,
+                 which is recall-weighted (NLTK uses alpha=0.9), and the gold
+                 answers are long structured prose. So `concise` is the variant
+                 most likely to LOSE here — it is kept as a control, to prove
+                 that brevity hurts rather than assuming it.
 
 Vietnamese prompts throughout — the models are Vietnamese-trained and instruction
 following degrades noticeably when the prompt language does not match the content.
@@ -23,11 +25,13 @@ from typing import Dict, List
 
 SYSTEM = "Bạn là trợ lý pháp lý. Chỉ trả lời dựa trên các đoạn văn bản được cung cấp."
 
-# TODO(TEAM/phase4-B6): once `00_task2_eval_notes.md` tells you the answer format,
-# add a variant that matches it exactly. If gold answers are one-line spans, a
-# variant that forbids full sentences will beat all four of these. If they are
-# structured (e.g. "Có/Không + căn cứ"), encode that structure in the template
-# rather than hoping the model infers it.
+# The gold answers are long, structured prose that names its legal basis, e.g.
+#   "Theo Điều 37 Nghị định 153/2020/NĐ-CP, được sửa đổi bởi khoản 26 Điều 1
+#    Nghị định 65/2022/NĐ-CP quy định cụ thể:
+#    - Tuân thủ quy định của pháp luật chứng khoán ...
+#    - Thực hiện chế độ báo cáo ..."
+# METEOR rewards covering the reference's content in the reference's order, so
+# `mimic` below deliberately reproduces that shape. Measure it against the others.
 TEMPLATES: Dict[str, str] = {
     "minimal":
         "Các đoạn văn bản pháp luật:\n{context}\n\n"
@@ -49,6 +53,18 @@ TEMPLATES: Dict[str, str] = {
         "Chỉ sử dụng thông tin trong các đoạn văn bản trên. "
         "Nêu rõ điều khoản làm căn cứ.\n"
         "Trả lời (kèm căn cứ):",
+
+    # Mirrors the gold answers' own structure: "Theo <căn cứ> quy định:" then
+    # bullet points. Usually the strongest variant under METEOR.
+    "mimic":
+        "Các đoạn văn bản pháp luật:\n{context}\n\n"
+        "Câu hỏi: {question}\n\n"
+        "Chỉ sử dụng thông tin trong các đoạn văn bản trên. Trả lời theo đúng "
+        "cấu trúc sau:\n"
+        "Bắt đầu bằng \"Theo <điều, khoản, tên văn bản> quy định:\", sau đó "
+        "liệt kê đầy đủ các nội dung liên quan dưới dạng gạch đầu dòng, "
+        "giữ nguyên cách diễn đạt của văn bản gốc.\n"
+        "Trả lời:",
 
     "concise":
         "Các đoạn văn bản pháp luật:\n{context}\n\n"

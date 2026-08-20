@@ -34,11 +34,15 @@ That is Task B2 below, and it is not optional.
 | Handles rephrasing | no | yes |
 | Params | ~135M (QA head on PhoBERT) | 0.5–3B |
 
-**Which to use is decided by BTC's answer format, not by preference.** If gold answers are
-verbatim spans from the corpus, an extractive head will beat a small generative model and
-cost 10× fewer parameters. If gold answers are rephrased or synthesised, extraction cannot
-reach them at all. **Read the evaluation code first** (Task B1) — this single fact
-determines the entire approach.
+**BTC's answers are long, structured prose**, e.g. *"Theo Điều 37 Nghị định
+153/2020/NĐ-CP … quy định cụ thể: - … - …"*. They are not spans, so a pure extractive head
+cannot reach them.
+
+**The metric is METEOR (primary) and ROUGE-L (secondary)**, macro-averaged, computed on
+plain whitespace tokens — BTC's scorer has the Vietnamese tokenizer commented out. METEOR
+is **recall-weighted**, so covering the reference's content in the reference's order is
+what scores; brevity is punished. See
+[`docs/reference/09_official_rules.md`](../../docs/reference/09_official_rules.md) §5.
 
 ### A3. Grounding
 

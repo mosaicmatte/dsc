@@ -70,7 +70,7 @@ cutoff:                      # A MODEL COMPONENT. Re-sweep after every change.
   alpha: 0.85
   tau: 0.0
   min_k: 1                   # >=1: an empty answer set scores zero recall, unrecoverable
-  max_k: 50
+  max_k: 5                   # BTC HARD CAP — >5 docs scores ZERO. Never raise.
 
 # Task 2 only
 reader:

@@ -3,11 +3,15 @@
 
 WHY IT EXISTS
 -------------
-BTC's data may not be in your hands on day one, and you should not spend day one
-waiting. This produces raw files in the same *shape* BTC's are likely to be
-(nested JSON, Vietnamese field names, string-or-list relevance labels), so you
-can run the entire Phase 0-1 chain today and learn what every script does before
-the real data raises the stakes.
+This produces raw files in BTC's ACTUAL shapes, confirmed against the Task 1/2
+overview documents:
+
+    selected-contexts.zip -> context_*.json  {"id": int, "name", "link", "passage"}
+    train.json                                {"<qid>": {"question", "answer": [ids]}}
+    task2_train.json                          {"<qid>": {"question", "answer": "prose"}}
+
+so you can run the entire Phase 0-1 chain today and learn what every script does
+before the real data raises the stakes.
 
 It is also the fixture `phases/0_harness/smoke_test.py` runs against.
 
@@ -27,7 +31,8 @@ data. Use it to learn the mechanics, never to predict a score.
 
 USAGE
   python tools/make_fixture.py --out data/fixture
-  python phases/0_harness/ingest.py --raw-corpus data/fixture/corpus.json \
+  python phases/0_harness/ingest.py \
+      --raw-corpus data/fixture/selected-contexts.zip \
       --raw-queries data/fixture/train.json --out-dir data/fixture/processed
 """
 from __future__ import annotations
@@ -36,6 +41,7 @@ import argparse
 import json
 import os
 import random
+import zipfile
 
 TOPICS = [
     ("lao động", ["nghỉ hằng năm", "hợp đồng lao động", "tiền lương làm thêm giờ",
@@ -52,7 +58,7 @@ MARKS = ["nội thành", "nông thôn", "khu công nghiệp", "vùng biên giớ
 
 def build(n_queries: int = 60, seed: int = 11):
     rng = random.Random(seed)
-    corpus, queries, task2 = [], [], []
+    corpus, queries, task2 = [], {}, {}
     for ti, (topic, subs) in enumerate(TOPICS):
         for li in range(4):
             decree = f"{100+ti*10+li}/2019/NĐ-CP"
@@ -65,9 +71,10 @@ def build(n_queries: int = 60, seed: int = 11):
                 for extra in range(rng.randint(0, 3)):
                     body.append(f"{extra+2}. Cơ quan có thẩm quyền hướng dẫn chi "
                                 f"tiết về {s} trong phạm vi {mark}.")
-            corpus.append({"law_id": f"L{ti}{li}",
-                           "tieu_de": f"Nghị định {decree} về {topic}",
-                           "noi_dung": "\n".join(body)})
+            corpus.append({"link": f"https://thuvienphapluat.vn/van-ban/{decree}",
+                           "name": f"Nghi-dinh-{decree.replace('/', '-')}",
+                           "passage": "\n".join(body),
+                           "id": 700 + ti * 10 + li})
 
     for qi in range(n_queries):
         ti, li = qi % 4, (qi // 4) % 4
@@ -76,14 +83,20 @@ def build(n_queries: int = 60, seed: int = 11):
         mark, decree = MARKS[li], f"{100+ti*10+li}/2019/NĐ-CP"
         if qi % 3 == 0:
             q = f"Nghị định {decree} quy định về {s} như thế nào?"
-            rel = [f"L{ti}{li}"]
+            rel = [str(700 + ti * 10 + li)]
         else:
             q = f"Quy định về {s} tại {mark} trong lĩnh vực {topic} ra sao?"
-            rel = [f"L{ti}{li}"] + ([f"L{ti}{(li+1)%4}"] if qi % 5 == 0 else [])
-        queries.append({"question_id": f"q{qi}", "cau_hoi": q, "relevant_id": rel})
-        task2.append({"question_id": f"t{qi}", "cau_hoi": q, "relevant_id": rel,
-                      "cau_tra_loi": f"Nội dung {s} tại {mark} thực hiện theo "
-                                     f"Nghị định {decree}."})
+            rel = ([str(700 + ti * 10 + li)]
+                   + ([str(700 + ti * 10 + (li + 1) % 4)] if qi % 5 == 0 else []))
+        queries[str(147000 + qi)] = {"question": q, "answer": rel}
+        task2[str(147000 + qi)] = {
+            "question": q,
+            "answer": (f"Theo Nghị định {decree} về {topic} quy định cụ thể:\n"
+                       f"- Nội dung {s} tại {mark} được thực hiện theo quy định "
+                       f"của pháp luật hiện hành.\n"
+                       f"- Cơ quan nhà nước có thẩm quyền hướng dẫn chi tiết "
+                       f"về {s}."),
+        }
     return corpus, queries, task2
 
 
@@ -97,27 +110,35 @@ def main():
 
     os.makedirs(a.out, exist_ok=True)
     corpus, queries, task2 = build(a.n_queries, a.seed)
-    # deliberately mixed shapes: a bare list, and a {"data": [...]} wrapper,
-    # because BTC could ship either and ingest.py must cope with both
-    json.dump(corpus, open(f"{a.out}/corpus.json", "w"), ensure_ascii=False, indent=1)
-    json.dump({"data": queries}, open(f"{a.out}/train.json", "w"),
+    # corpus: context_*.json inside selected-contexts.zip, exactly as BTC ships it
+    ctx_dir = os.path.join(a.out, "contexts")
+    os.makedirs(ctx_dir, exist_ok=True)
+    for i, rec in enumerate(corpus):
+        json.dump(rec, open(f"{ctx_dir}/context_{i}.json", "w"), ensure_ascii=False)
+    with zipfile.ZipFile(f"{a.out}/selected-contexts.zip", "w",
+                         zipfile.ZIP_DEFLATED) as z:
+        for i in range(len(corpus)):
+            z.write(f"{ctx_dir}/context_{i}.json", f"context_{i}.json")
+
+    # queries: JSON objects keyed by question id
+    json.dump(queries, open(f"{a.out}/train.json", "w"), ensure_ascii=False, indent=1)
+    json.dump(task2, open(f"{a.out}/task2_train.json", "w"),
               ensure_ascii=False, indent=1)
-    json.dump({"data": task2}, open(f"{a.out}/task2_train.json", "w"),
+    test = {k: {"question": v["question"]} for k, v in list(queries.items())[:20]}
+    json.dump(test, open(f"{a.out}/public_official.json", "w"),
               ensure_ascii=False, indent=1)
-    # an unlabelled "public test" split, to practise the submission path
-    test = [{"question_id": q["question_id"], "cau_hoi": q["cau_hoi"]}
-            for q in queries[:20]]
-    json.dump(test, open(f"{a.out}/public_test.json", "w"), ensure_ascii=False, indent=1)
 
     print(f"wrote fixture to {a.out}/")
-    for f in ("corpus.json", "train.json", "task2_train.json", "public_test.json"):
+    for f in ("selected-contexts.zip", "train.json", "task2_train.json",
+              "public_official.json"):
         print(f"  {f}")
     print(f"\n{len(corpus)} documents · {len(queries)} Task 1 queries · "
-          f"{len(task2)} Task 2 questions · 20 unlabelled test queries")
+          f"{len(task2)} Task 2 questions · {len(test)} unlabelled test queries")
     print("\nNOT a difficulty proxy — BM25 scores near-perfect recall here and will\n"
           "not on real data. Use it to learn the mechanics only.")
-    print(f"\nNext: see WALKTHROUGH.md, or run\n"
-          f"  python phases/0_harness/ingest.py --raw-corpus {a.out}/corpus.json "
+    print(f"\nNext: see docs/walkthrough.md, or run\n"
+          f"  python phases/0_harness/ingest.py "
+          f"--raw-corpus {a.out}/selected-contexts.zip "
           f"--raw-queries {a.out}/train.json --out-dir {a.out}/processed")
 
 

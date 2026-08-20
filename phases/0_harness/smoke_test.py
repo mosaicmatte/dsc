@@ -31,6 +31,14 @@ sys.path.insert(0, os.path.abspath(  # tools/ lives at the repo root
 FAILURES = []
 
 
+def _raises(fn, exc):
+    try:
+        fn()
+        return False
+    except exc:
+        return True
+
+
 def check(name, cond, detail=""):
     print(f"  {'PASS' if cond else 'FAIL'}  {name}" + (f"  [{detail}]" if detail else ""))
     if not cond:
@@ -39,11 +47,17 @@ def check(name, cond, detail=""):
 
 
 def make_raw(d):
-    """Write the shared fixture (tools/make_fixture.py) into ``d``."""
+    """Write the shared fixture (tools/make_fixture.py) into ``d``, in BTC shapes."""
+    import zipfile
     from make_fixture import build  # noqa: E402
     corpus, queries, _ = build()
-    json.dump(corpus, open(f"{d}/corpus.json", "w"), ensure_ascii=False)
-    json.dump({"data": queries}, open(f"{d}/train.json", "w"), ensure_ascii=False)
+    os.makedirs(f"{d}/contexts", exist_ok=True)
+    for i, rec in enumerate(corpus):
+        json.dump(rec, open(f"{d}/contexts/context_{i}.json", "w"), ensure_ascii=False)
+    with zipfile.ZipFile(f"{d}/selected-contexts.zip", "w") as z:
+        for i in range(len(corpus)):
+            z.write(f"{d}/contexts/context_{i}.json", f"context_{i}.json")
+    json.dump(queries, open(f"{d}/train.json", "w"), ensure_ascii=False)
     return len(corpus), len(queries)
 
 
@@ -75,7 +89,7 @@ def main():
           "\n" in normalize.normalize("a\nb", keep_newlines=True))
 
     print("\n2. ingest")
-    sys.argv = ["ingest", "--raw-corpus", f"{raw}/corpus.json",
+    sys.argv = ["ingest", "--raw-corpus", f"{raw}/selected-contexts.zip",
                 "--raw-queries", f"{raw}/train.json", "--out-dir", proc]
     import ingest  # noqa: E402  (same directory)
     ingest.main()
@@ -102,8 +116,9 @@ def main():
     qrels = io_utils.qrels(queries)
     d = metrics.diagnostics(run, qrels, ks=(1, 10, 50))
     check("recall@50 > 0.5", d["recall@50"] > 0.5, f"recall@50={d['recall@50']:.3f}")
+    q0 = next(iter(qtok))
     check("k1/b actually change scores",
-          idx.search(qtok["q0"], 5, b=0.0) != idx.search(qtok["q0"], 5, b=1.0))
+          idx.search(qtok[q0], 5, b=0.0) != idx.search(qtok[q0], 5, b=1.0))
 
     print("\n5. metrics")
     check("recall is monotone in set size",
@@ -120,21 +135,57 @@ def main():
     check("missing query scored as empty, not skipped",
           metrics.official({}, qrels)["primary_recall"] == 0.0)
 
-    print("\n6. cutoff rules")
-    rows = cutoff.sweep(run, qrels, max_k=10)
+    print("\n6. BTC scoring rules (the ones that zero a submission)")
+    capped = {q: (v * 3)[:6] for q, v in list(p10.items())[:2]}   # >5 ids
+    padded = dict(p1)
+    padded.update(capped)
+    s_cap = metrics.official(padded, qrels)
+    check("returning >5 ids zeroes those questions",
+          s_cap["n_over_cap"] == len(capped) and
+          s_cap["primary_recall"] < metrics.official(p1, qrels)["primary_recall"],
+          f"{int(s_cap['n_over_cap'])} questions over cap")
+    check("cutoff refuses max_k > 5",
+          _raises(lambda: cutoff.apply_cutoff([("a", 1.0)], max_k=20), ValueError))
+    check("cutoff de-duplicates",
+          cutoff.apply_cutoff([("a", 5.0), ("a", 4.0), ("b", 3.0)],
+                              rule="top_k", k=3) == ["a", "b"])
+    dup_pred = {q: (v + v)[:5] for q, v in p1.items()}
+    check("duplicates lower precision (BTC uses the raw list length)",
+          metrics.official(dup_pred, qrels)["tiebreak_precision"]
+          <= metrics.official(p1, qrels)["tiebreak_precision"])
+    probs = metrics.check_submittable({list(qrels)[0]: ["x"]}, list(qrels))
+    check("check_submittable catches a short submission", bool(probs))
+
+    print("\n6b. parity with BTC's own scorer")
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from btc_eval.scoring_legalir import eval_retrieval
+        full = {q: list(p10.get(q, [])) for q in qrels}
+        theirs = eval_retrieval({q: {"answer": v} for q, v in full.items()},
+                                {q: list(v) for q, v in qrels.items()})
+        ours = metrics.official(full, qrels)
+        check("our metrics == BTC's scoring program",
+              abs(theirs["recall"] - ours["primary_recall"]) < 1e-12 and
+              abs(theirs["precision"] - ours["tiebreak_precision"]) < 1e-12,
+              f"R={theirs['recall']:.4f} P={theirs['precision']:.4f}")
+    except ImportError as e:
+        check("BTC scorer importable", False, str(e))
+
+    print("\n7. cutoff rules")
+    rows = cutoff.sweep(run, qrels, max_k=5)
     check("sweep returns all rules",
           {r["rule"] for r in rows} == {"top_k", "ratio", "gap"})
     var = {len(v) for v in cutoff.apply_to_run(run, rule="ratio", alpha=0.9).values()}
     check("ratio produces variable-length sets", len(var) > 1, f"sizes={sorted(var)}")
 
-    print("\n7. fusion")
+    print("\n8. fusion")
     f_rrf = fusion.rrf([run, run], [0.5, 0.5], top_k=50)
     check("rrf preserves recall",
           abs(metrics.recall_at_k(f_rrf, qrels, 50) - d["recall@50"]) < 1e-9)
     f_w = fusion.weighted([run, run], [0.5, 0.5], top_k=50)
     check("weighted fusion runs", len(f_w) == len(run))
 
-    print("\n8. experiment log")
+    print("\n9. experiment log")
     from src import exp_log
     log = f"{work}/runs.csv"
     for i, (dev, lb) in enumerate([(0.5, 0.48), (0.6, 0.59), (0.7, 0.71)]):
@@ -143,7 +194,7 @@ def main():
     check("dev/leaderboard correlation gate works", corr["verdict"] == "healthy",
           f"spearman={corr['spearman']:.2f}")
 
-    print("\n9. optional dependencies")
+    print("\n10. optional dependencies")
     for mod, why in [("yaml", "config freezing"), ("matplotlib", "cutoff plots"),
                      ("pyvi", "word segmentation"), ("torch", "phases 2-4"),
                      ("sentence_transformers", "phases 2-4"),

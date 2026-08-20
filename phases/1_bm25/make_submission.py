@@ -3,9 +3,8 @@
 
 WHAT YOU NEED TO DO
 -------------------
-1. Fill in ``format_submission()`` below from `phases/0_harness/01_schema_summary.md`
-   section 4. It is marked as a blocker. Guessing the format wastes a submission
-   from a budget of ten per day.
+1. The format is confirmed against BTC's task document and scoring code — see
+   ``format_submission()`` below. Nothing to fill in.
 2. Run it against the PUBLIC TEST queries, not dev:
      --queries data/processed/queries_public_test.jsonl
 3. Submit through the **registered Organization**. A submission from a personal
@@ -28,6 +27,10 @@ Usual causes, in order of frequency:
 USAGE
   python phases/1_bm25/make_submission.py --run work/experiments/runs/<id>.jsonl \
       --queries data/processed/queries_public_test.jsonl --cutoff ratio --alpha 0.85
+
+Produces submissions/<run_id>.zip containing submission.json:
+    {"147194": {"answer": ["177504", "740"]}, ...}
+At most 5 ids per question — more scores ZERO for that question.
 """
 from __future__ import annotations
 
@@ -45,24 +48,24 @@ from src import exp_log, io_utils, metrics  # noqa: E402
 
 
 def format_submission(preds, queries):
-    """TODO(BLOCKER/phase0-B1): match BTC's exact required format.
+    """BTC's required format, confirmed against their Task 1 overview document
+    and their scoring program (`btc_eval/scoring_legalir.py`, which does
+    ``y_pred = {k: v['answer'] for k, v in y_pred.items()}``).
 
-    HOW: copy the format block from `phases/0_harness/01_schema_summary.md` §4.
-    The placeholder below is the most common shape in Vietnamese legal-IR shared
-    tasks, but DO NOT trust it — verify against their docs.
+        {
+          "147194": {"answer": ["177504", "740"]},
+          "147195": {"answer": ["12"]}
+        }
 
-    Things that are usually load-bearing and easy to get wrong:
-      * the key name for the id list (``relevant_id`` vs ``predicted`` vs ``labels``)
-      * whether every query must appear, even with an empty list
-      * whether ids must be strings or integers
-      * whether the file must be named exactly ``predict.json`` inside the zip
+    A JSON OBJECT keyed by question id — not a list of records. Every question
+    in the reference must be present: their scorer raises if the key counts
+    differ, so an incomplete file fails outright rather than scoring poorly.
     """
-    return [{"question_id": q["qid"], "relevant_id": preds.get(q["qid"], [])}
-            for q in queries]
+    return {q["qid"]: {"answer": list(preds.get(q["qid"], []))} for q in queries}
 
 
-# TODO(BLOCKER/phase0-B1): confirm the exact filename BTC expects inside the zip.
-SUBMISSION_FILENAME = "predict.json"
+# Confirmed: submission.zip containing exactly submission.json.
+SUBMISSION_FILENAME = "submission.json"
 
 
 def main():
@@ -75,10 +78,13 @@ def main():
     ap.add_argument("--k", type=int, default=10)
     ap.add_argument("--alpha", type=float, default=0.85)
     ap.add_argument("--min-k", type=int, default=1)
-    ap.add_argument("--max-k", type=int, default=50)
+    ap.add_argument("--max-k", type=int, default=5,
+                    help="BTC hard cap: >5 documents scores ZERO for that question")
     ap.add_argument("--run-id", default=None)
     ap.add_argument("--out-dir", default="work/submissions")
     ap.add_argument("--notes", default="")
+    ap.add_argument("--force", action="store_true",
+                    help="write the file even if pre-flight found problems")
     a = ap.parse_args()
 
     run = io_utils.load_run(a.run)
@@ -86,29 +92,30 @@ def main():
     preds = cutoff_mod.apply_to_run(run, rule=a.cutoff, k=a.k, alpha=a.alpha,
                                     min_k=a.min_k, max_k=a.max_k)
 
-    # --- pre-flight checks. Each of these has cost somebody a submission. ---
-    problems = []
-    missing = [q["qid"] for q in queries if q["qid"] not in preds]
-    if missing:
-        problems.append(f"{len(missing)} queries have no prediction "
-                        f"(e.g. {missing[:5]}) — they will score zero recall")
-    empty = [q["qid"] for q in queries if not preds.get(q["qid"])]
-    if empty:
-        problems.append(f"{len(empty)} queries have an EMPTY prediction "
-                        f"(e.g. {empty[:5]}) — raise --min-k")
-    chunky = [d for v in preds.values() for d in v[:1] if "#" in d or "::" in d]
+    # --- pre-flight. These are ERRORS, not warnings: BTC's scorer raises on a
+    # malformed submission, so an invalid file wastes one of ten daily attempts.
+    qids = [q["qid"] for q in queries]
+    payload_preds = {q: list(preds.get(q, [])) for q in qids}
+    problems = metrics.check_submittable(payload_preds, qids)
+    chunky = [d for v in payload_preds.values() for d in v[:1]
+              if "#" in str(d) or "::" in str(d)]
     if chunky:
         problems.append(f"predictions contain chunk-style ids (e.g. {chunky[:3]}) — "
-                        f"did you forget --aggregate max when retrieving?")
+                        f"you forgot --aggregate max when retrieving; BTC has "
+                        f"never seen these ids and every one is a miss")
     for p in problems:
-        print(f"PRE-FLIGHT WARNING: {p}", file=sys.stderr)
+        print(f"PRE-FLIGHT ERROR: {p}", file=sys.stderr)
+    if problems and not a.force:
+        print("\nRefusing to write an invalid submission. Fix the above, or pass "
+              "--force if you know better.", file=sys.stderr)
+        sys.exit(1)
 
     run_id = a.run_id or os.path.basename(a.run).replace(".jsonl", "")
     os.makedirs(a.out_dir, exist_ok=True)
     json_path = os.path.join(a.out_dir, f"{run_id}.json")
     zip_path = os.path.join(a.out_dir, f"{run_id}.zip")
 
-    payload = format_submission(preds, queries)
+    payload = format_submission(payload_preds, queries)
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=1)
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
@@ -117,7 +124,7 @@ def main():
     # size stats must be over the queries BEING SUBMITTED, not over everything in
     # the run file — otherwise a run built on a different split reports healthy
     # numbers while most of the submission is empty.
-    sizes = [len(preds.get(q["qid"], [])) for q in queries]
+    sizes = [len(payload_preds[q]) for q in qids]
     print(f"\nrun_id       : {run_id}")
     print(f"queries      : {len(queries)}")
     print(f"cutoff       : {a.cutoff} "

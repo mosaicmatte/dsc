@@ -1,6 +1,12 @@
 # Task B1 — Schema summary (FILL THIS IN)
 
 > **TODO(TEAM/phase0-B1): fill in every ANSWER field below from the BTC data overview.**
+>
+> Much of this is already answered in
+> [`docs/reference/09_official_rules.md`](../../docs/reference/09_official_rules.md) §4
+> (transcribed from BTC's own task document and scoring code). Use this worksheet to
+> confirm it against the actual files you downloaded, and to record anything that
+> differs.
 
 Source documents: `data/raw/DSC2026_Task1_LegalIR_Data_Overview.docx` (+ Task 2 equivalent).
 Read them with:

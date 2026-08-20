@@ -3,13 +3,10 @@
 
 WHAT YOU NEED TO DO
 -------------------
-1. Drop BTC's published scoring script into ``phases/0_harness/btc_eval/``.
-   Do NOT modify it. Add an ``__init__.py`` next to it.
-2. Fill in ``btc_official_score()`` below (it is marked as a blocker) so it
-   calls their function with their expected argument shapes.
-3. Run with ``--cross-check``. Our reimplementation in ``src/metrics.py`` must
-   agree with theirs to 1e-9. If it does not, OUR code is wrong — fix
-   ``src/metrics.py``, never theirs.
+BTC's scoring program is already vendored verbatim in ``btc_eval/`` and wired
+up: run with ``--cross-check`` and this scores the same predictions through both
+their code and ours, asserting agreement to 1e-9. If they ever disagree, OUR
+code is wrong — fix ``src/metrics.py``, never theirs.
 
 WHY BOTH IMPLEMENTATIONS
 ------------------------
@@ -48,21 +45,18 @@ from src import exp_log, io_utils, metrics  # noqa: E402
 DEFAULT_GOLD = "data/processed/queries_dev.jsonl"
 
 
-def btc_official_score(pred_path: str, gold_path: str) -> float:
-    """TODO(BLOCKER/phase0-B4): call BTC's published scorer.
+def btc_official_score(preds, qrels):
+    """Score with BTC's OWN code (vendored verbatim in ``btc_eval/``).
 
-    HOW: read their script, find the top-level function (often ``evaluate``,
-    ``score``, or a ``__main__`` block). If it is only runnable as a CLI, shell
-    out to it here and parse stdout — that is fine, this is called once.
-
-    Example shape once you know theirs:
-
-        from phases/0_harness.btc_eval import scoring
-        return scoring.evaluate(pred_path, gold_path)["recall"]
+    Their ``eval_retrieval`` takes the submission shape ``{qid: {"answer": [...]}}``
+    and the reference shape ``{qid: [...]}`` — exactly what their ``main()`` hands
+    it after loading the JSON files. We reuse the function rather than the CLI so
+    the check runs in-process.
     """
-    raise NotImplementedError(
-        "Fill in btc_official_score() with BTC's scorer before using --cross-check.\n"
-        "Until then, dev numbers are unverified and must not be trusted.")
+    from btc_eval.scoring_legalir import eval_retrieval
+    y_pred = {q: {"answer": list(v)} for q, v in preds.items()}
+    y_true = {q: list(v) for q, v in qrels.items()}
+    return eval_retrieval(y_pred, y_true)
 
 
 def main():
@@ -78,7 +72,8 @@ def main():
     ap.add_argument("--alpha", type=float, default=0.85)
     ap.add_argument("--tau", type=float, default=0.0)
     ap.add_argument("--min-k", type=int, default=1)
-    ap.add_argument("--max-k", type=int, default=50)
+    ap.add_argument("--max-k", type=int, default=5,
+                    help="BTC hard cap: >5 documents scores ZERO for that question")
     ap.add_argument("--diagnostics", action="store_true",
                     help="also print rank-based metrics (needs --run)")
     ap.add_argument("--cross-check", action="store_true")
@@ -135,13 +130,18 @@ def main():
                 print(f"  {k:<22}: {v:.4f}")
 
     if a.cross_check:
-        theirs = btc_official_score(pred_path, a.gold)
-        ours = s["primary_recall"]
-        delta = abs(theirs - ours)
-        print(f"\ncross-check: BTC={theirs:.9f}  ours={ours:.9f}  delta={delta:.2e}")
-        print("AGREE" if delta < 1e-9 else
+        full = {q: list(preds.get(q, [])) for q in qrels}
+        theirs = btc_official_score(full, qrels)
+        dr = abs(theirs["recall"] - s["primary_recall"])
+        dp = abs(theirs["precision"] - s["tiebreak_precision"])
+        print(f"\ncross-check against btc_eval/scoring_legalir.py")
+        print(f"  recall    BTC={theirs['recall']:.9f}  "
+              f"ours={s['primary_recall']:.9f}  delta={dr:.2e}")
+        print(f"  precision BTC={theirs['precision']:.9f}  "
+              f"ours={s['tiebreak_precision']:.9f}  delta={dp:.2e}")
+        print("AGREE" if max(dr, dp) < 1e-9 else
               "*** MISMATCH — fix src/metrics.py before doing any modelling ***")
-        if delta >= 1e-9:
+        if max(dr, dp) >= 1e-9:
             sys.exit(1)
 
     if a.log:

@@ -24,9 +24,20 @@ Canonical output (see root README):
   data/processed/queries_train.jsonl    {"qid","text","relevant":[doc_id,...]}
 
 Usage:
-  python phases/0_harness/ingest.py --inspect --raw-corpus data/raw/corpus.json
-  python phases/0_harness/ingest.py --raw-corpus data/raw/corpus.json \
-                                  --raw-queries data/raw/train.json
+  # inspect first — prints detected fields and one record, writes nothing
+  python phases/0_harness/ingest.py --inspect \
+      --raw-corpus data/raw/selected-contexts.zip
+
+  # Task 1
+  python phases/0_harness/ingest.py \
+      --raw-corpus  data/raw/selected-contexts.zip \
+      --raw-queries data/raw/train.json \
+      --raw-test    data/raw/public_official.json
+
+  # Task 2 (same corpus; --task 2 also picks up the gold prose answer)
+  python phases/0_harness/ingest.py --task 2 \
+      --raw-queries data/raw/task2_train.json
+
   python phases/0_harness/ingest.py --validate
 """
 from __future__ import annotations
@@ -46,17 +57,33 @@ PROC = "data/processed"
 
 # Candidate names, most-likely first. Extend these lists rather than editing
 # the detection logic.
-ID_FIELDS = ["doc_id", "id", "law_id", "article_id", "cid", "_id", "index"]
-TEXT_FIELDS = ["text", "content", "noi_dung", "article_text", "body", "passage"]
-TITLE_FIELDS = ["title", "tieu_de", "law_title", "heading", "name"]
-QID_FIELDS = ["qid", "question_id", "id", "query_id", "sample_id"]
+# Ordered most-likely-first. The DSC2026 shapes are listed first because they are
+# what BTC actually ships (confirmed from the Task 1/2 overview documents):
+#   corpus  context_*.json : {"id": 740, "name": ..., "link": ..., "passage": ...}
+#   queries train.json     : {"147194": {"question": "...", "answer": ["177504"]}}
+ID_FIELDS = ["id", "doc_id", "law_id", "article_id", "cid", "_id", "index"]
+TEXT_FIELDS = ["passage", "text", "content", "noi_dung", "article_text", "body"]
+TITLE_FIELDS = ["name", "title", "tieu_de", "law_title", "heading"]
+QID_FIELDS = ["__key__", "qid", "question_id", "id", "query_id", "sample_id"]
 QUERY_FIELDS = ["question", "query", "cau_hoi", "text", "q"]
-REL_FIELDS = ["relevant_id", "relevant", "relevant_laws", "positive", "labels",
-              "relevant_articles", "answer_id", "context_id", "gold"]
+# For Task 1 "answer" holds the list of relevant document ids.
+REL_FIELDS = ["answer", "relevant_id", "relevant", "relevant_laws", "positive",
+              "labels", "relevant_articles", "answer_id", "context_id", "gold"]
 
 
 def load_raw(path: str):
-    """BTC ships .json (a list, or a dict wrapping a list) or .jsonl."""
+    """BTC ships several shapes. All of them land here.
+
+    * ``selected-contexts.zip`` or a directory of ``context_*.json`` — the corpus.
+      Each file holds one record or a list of records.
+    * ``train.json`` / ``public_official.json`` — a JSON OBJECT keyed by question
+      id: ``{"147194": {"question": ..., "answer": [...]}}``. The key becomes
+      ``__key__`` on each record and is picked up as the qid.
+    * a plain list of records, or ``{"data": [...]}``.
+    * ``.jsonl``.
+    """
+    if os.path.isdir(path) or path.endswith(".zip"):
+        return _load_context_files(path)
     if path.endswith(".jsonl"):
         return list(io_utils.read_jsonl(path))
     with open(path, encoding="utf-8") as f:
@@ -72,6 +99,33 @@ def load_raw(path: str):
                     for k, v in data.items()]
         raise ValueError(f"{path}: dict with no recognisable record list")
     return data
+
+
+def _load_context_files(path: str):
+    """Read every context_*.json out of a directory or a zip."""
+    import zipfile
+
+    recs = []
+    if path.endswith(".zip"):
+        with zipfile.ZipFile(path) as z:
+            names = [n for n in z.namelist()
+                     if n.endswith(".json") and not n.startswith("__MACOSX")]
+            if not names:
+                raise SystemExit(f"{path}: no .json members found")
+            for n in sorted(names):
+                with z.open(n) as f:
+                    obj = json.load(f)
+                recs.extend(obj if isinstance(obj, list) else [obj])
+    else:
+        names = sorted(fn for fn in os.listdir(path) if fn.endswith(".json"))
+        if not names:
+            raise SystemExit(f"{path}: no .json files found")
+        for n in names:
+            with open(os.path.join(path, n), encoding="utf-8") as f:
+                obj = json.load(f)
+            recs.extend(obj if isinstance(obj, list) else [obj])
+    print(f"  read {len(recs)} records from {len(names)} context file(s)")
+    return recs
 
 
 def detect(records, candidates, required=True, what=""):
@@ -155,10 +209,16 @@ def ingest_queries(path, qid_field, query_field, rel_field, out, split,
     recs = load_raw(path)
     qid_field = qid_field or detect(recs, QID_FIELDS, what="qid_field")
     query_field = query_field or detect(recs, QUERY_FIELDS, what="query_field")
-    rel_field = rel_field or detect(recs, REL_FIELDS, split == "train", "rel_field")
     if task == 2:
+        # In Task 2 "answer" is the gold PROSE answer, not a list of doc ids, so
+        # it must not be consumed as the relevance field.
         answer_field = answer_field or detect(recs, ANSWER_FIELDS,
                                               "train" in split, "answer_field")
+        rel_candidates = [f for f in REL_FIELDS if f != answer_field]
+        rel_field = rel_field or detect(recs, rel_candidates, False, "rel_field")
+    else:
+        rel_field = rel_field or detect(recs, REL_FIELDS, split == "train",
+                                        "rel_field")
     known = {qid_field, query_field, rel_field, answer_field, "__key__"}
     rows = []
     for i, r in enumerate(recs):

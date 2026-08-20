@@ -15,10 +15,12 @@ worse, which is the interesting result and a paper row.
 
 SCORING
 -------
-This script needs BTC's Task 2 metric. Fill in `score_answers()` below from
-`00_task2_eval_notes.md`. Until then it reports the built-in token-F1 and exact
-match, clearly labelled as UNOFFICIAL — do not put unofficial numbers in the
-paper without saying so.
+Uses BTC's own scorer (vendored, `phases/0_harness/btc_eval/scoring_legalqa.py`):
+METEOR primary, ROUGE-L secondary, both macro-averaged.
+
+Needs `nltk` and the wordnet corpus — the first run downloads it. If the machine
+is offline, pre-fetch with:
+    python -c "import nltk; nltk.download('wordnet'); nltk.download('omw-1.4')"
 
 USAGE
   python phases/4_task2_qa/ablate_context.py --model Qwen/Qwen2.5-1.5B-Instruct --top-k 1 3 5
@@ -37,50 +39,35 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import prompts as P  # noqa: E402
 
-from src import io_utils, normalize  # noqa: E402
+from src import io_utils  # noqa: E402
+
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-def _tokens(s):
-    return normalize.tokenize(s or "")
+def score_answers(pred_path: str, queries, answer_field: str = "answer"):
+    """Score with BTC's OWN Task 2 code (vendored in phases/0_harness/btc_eval/).
 
+    Their metric, verbatim from ``scoring_legalqa.py``:
+        METEOR   (primary)  nltk.translate.meteor_score, on `.split()` tokens
+        ROUGE-L  (secondary) rouge_score.RougeScorer(['rougeL'], use_stemmer=False)
+        both averaged with .mean() over questions
 
-def token_f1(pred: str, gold: str) -> float:
-    """UNOFFICIAL. Replace with BTC's metric once known."""
-    p, g = _tokens(pred), _tokens(gold)
-    if not p or not g:
-        return float(p == g)
-    common = 0
-    gc = list(g)
-    for t in p:
-        if t in gc:
-            gc.remove(t)
-            common += 1
-    if common == 0:
-        return 0.0
-    prec, rec = common / len(p), common / len(g)
-    return 2 * prec * rec / (prec + rec)
-
-
-def exact_match(pred: str, gold: str) -> float:
-    return float(normalize.normalize(pred or "") == normalize.normalize(gold or ""))
-
-
-def score_answers(pred_path: str, queries, answer_field: str):
-    """TODO(BLOCKER/phase4-B1): swap in BTC's official Task 2 metric.
-
-    HOW: same pattern as `phases/0_harness/evaluate.py:btc_official_score` —
-    import their scorer, or shell out to their CLI and parse stdout.
+    Two details that shape your whole approach:
+      * They do NOT word-segment — the pyvi call is commented out in their
+        source. Scoring is over whitespace-split Vietnamese syllables.
+      * NLTK's METEOR is heavily RECALL-weighted (alpha=0.9) and penalises
+        fragmentation. Long answers that cover the reference's content in the
+        reference's order score well; terse answers are punished.
     """
-    gold = {q["qid"]: q.get(answer_field, "") for q in queries}
-    preds = {r["qid"]: r.get("answer", "") for r in io_utils.read_jsonl(pred_path)}
-    n = len(gold) or 1
-    return {
-        "token_f1_UNOFFICIAL": sum(token_f1(preds.get(q, ""), g)
-                                   for q, g in gold.items()) / n,
-        "exact_match_UNOFFICIAL": sum(exact_match(preds.get(q, ""), g)
-                                      for q, g in gold.items()) / n,
-        "n": n,
-    }
+    sys.path.insert(0, os.path.join(REPO, "phases", "0_harness"))
+    from btc_eval.scoring_legalqa import eval_qa
+
+    gold = {q["qid"]: str(q.get(answer_field, "")) for q in queries}
+    preds = {r["qid"]: str(r.get("answer", "")) for r in io_utils.read_jsonl(pred_path)}
+    # their scorer raises on a key-count mismatch; mirror the submission exactly
+    y_pred = {q: {"answer": preds.get(q, "")} for q in gold}
+    res = eval_qa(y_pred, gold)
+    return {"meteor": res["meteor"], "rouge_l": res["rouge"], "n": len(gold)}
 
 
 def main():
@@ -124,21 +111,22 @@ def main():
 
     L = ["# Task 2 ablation — context size x prompt format", "",
          f"Model: `{a.model}`  ·  retrieval: `{os.path.basename(a.run)}`", "",
-         "> Metrics marked UNOFFICIAL are this repo's approximation. Replace",
-         "> `score_answers()` with BTC's scorer before quoting these anywhere.", "",
-         "| prompt | top_k | token F1 (unoff.) | exact match (unoff.) |",
+         "> Scored with BTC's own code (METEOR primary, ROUGE-L secondary).", "",
+         "| prompt | top_k | METEOR (primary) | ROUGE-L |",
          "|---|---|---|---|"]
     for r in rows:
         L.append(f"| {r['prompt']} | {r['top_k']} | "
-                 f"{r['token_f1_UNOFFICIAL']:.4f} | {r['exact_match_UNOFFICIAL']:.4f} |")
-    best = max(rows, key=lambda r: r["token_f1_UNOFFICIAL"]) if rows else {}
+                 f"{r['meteor']:.4f} | {r['rouge_l']:.4f} |")
+    best = max(rows, key=lambda r: r["meteor"]) if rows else {}
     L += ["", f"Best: **{best.get('prompt')} @ top-{best.get('top_k')}**", "",
           "## Interpretation (fill in)", "",
           "- Did more context help monotonically? If not, at which k did it turn,",
           "  and is that consistent with the 'lost in the middle' explanation?",
-          "- Which prompt variant won, and does that tell you the failure mode was",
-          "  hallucination (grounded wins) or verbosity against a short gold string",
-          "  (concise wins)?"]
+          "- Which prompt variant won? METEOR is recall-weighted, so `concise`",
+          "  losing to `cited`/`grounded` is the expected direction — check whether",
+          "  your answer LENGTH tracks the reference length.",
+          "- Compare mean answer length against mean reference length. A large gap",
+          "  either way is usually worth more METEOR than any model change."]
     os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
     with open(a.out, "w", encoding="utf-8") as f:
         f.write("\n".join(L) + "\n")

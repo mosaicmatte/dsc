@@ -1,0 +1,172 @@
+# 09 — Official rules and specs, with sources
+
+Everything on this page is transcribed from BTC's own emails, task documents and
+**scoring code**, not inferred. Each item names its source so you can re-check it.
+Where this page and any other page in the repo disagree, **this page wins.**
+
+Verified 20/08/2026 against the DSC@UIT mail thread and the vendored scoring
+programs in [`phases/0_harness/btc_eval/`](../../phases/0_harness/btc_eval/).
+
+---
+
+## 1. Timeline
+
+| Round | Dates | Source |
+|---|---|---|
+| Warm-up | from 31/07 | kickoff emails, 31/07 |
+| **Public Test (both tasks)** | **06/08 → end of 18/09/2026** | Public Test emails, 06/08 |
+| Private Test | 19–23/09 | competition rules |
+
+> The Public Test has been **open since 06/08**. The data below is already
+> downloadable — there is nothing to wait for.
+
+## 2. Links
+
+| What | Where |
+|---|---|
+| Task 1 Codabench | https://www.codabench.org/competitions/17715/ |
+| Task 2 Codabench | https://www.codabench.org/competitions/17716/ |
+| Task 1 data (Public Test) | Drive folder `1e4XctfiDz9TNPuxYtNJ3Uoaz0vQ9gB1t` |
+| Task 1 scoring program | Drive file `12QTJfS_GlilTibz4k3jV1c8q8_BU0V36` — vendored |
+| Task 2 scoring program | Drive file `1HS5SqEZIoWiOqzNwtUdzvAnug8zNdXsJ` — vendored |
+| Task 1 overview doc | Google Doc `1ZibamHVM21GvwlZjVL0FlGlpe8mI-Yod` |
+| Task 2 overview doc | Google Doc `1TGzgRSQvTqefMtlgwVYQ98lsth_j-iWt` |
+| Journal (for the paper) | Tạp chí Phát triển KH&CN ĐHQG-HCM |
+
+Contact `dsc@uit.edu.vn`; system faults go on the Codabench forum.
+
+## 3. Submissions
+
+- **10 per day per team.** Leaderboard shows each team's **best of that day**.
+- Must be submitted through the **registered Organization** on Codabench. Only
+  Organization submissions are valid.
+- Both tasks: a `submission.zip` containing exactly one `submission.json`.
+
+## 4. Task 1 — LegalIR
+
+### Data
+
+| File | Content |
+|---|---|
+| `train.json` | training questions |
+| `public_official.json` | Public Test questions |
+| `selected-contexts.zip` | corpus — many `context_*.json` |
+| `DSC2026_Task1_LegalIR_Data_Overview.docx` | the task document |
+
+Corpus record (`context_*.json`):
+```json
+{"link": "https://thuvienphapluat.vn/...", "name": "Quyet-dinh-5868-QD-BYT-...",
+ "passage": "BỘ Y TẾ\r\n\n...", "id": 740}
+```
+Questions (`train.json`) — a JSON **object keyed by question id**:
+```json
+{"147194": {"question": "...", "answer": ["177504"]}}
+```
+So gold labels are **whole-document ids**. Retrieve at any granularity you like,
+but you must aggregate back to the document id before submitting
+(`--aggregate max`).
+
+### Submission format
+```json
+{"147194": {"answer": ["177504", "740"]}}
+```
+
+### Scoring — the exact code
+
+From [`btc_eval/scoring_legalir.py`](../../phases/0_harness/btc_eval/scoring_legalir.py):
+
+```python
+recall    = mean([ |truth&pred| / |truth|   if 0 < len(pred) <= 5 else 0 ])
+precision = mean([ |truth&pred| / len(pred) if 0 < len(pred) <= 5 else 0 ])
+```
+
+| Fact | Consequence |
+|---|---|
+| **≤ 5 document ids per question** | 6 ids ⇒ that question scores **0 on both metrics**. Not truncation — zeroing. |
+| **Macro averaging** (`.mean()` over questions) | every question weighs the same |
+| Empty prediction ⇒ 0 | never submit an empty answer list |
+| Precision denominator is `len(pred)`, **not** `len(set(pred))` | a duplicate id lowers precision *and* burns one of the five slots |
+| `if len(ids_preds) != len(ids_truth): raise` | a missing or extra question makes the **whole submission fail**, not score badly |
+| **Recall primary, Precision tiebreak** | confirmed 02/08 — an earlier email said the reverse and was corrected |
+
+> The "return everything" exploit is closed by the 5-id cap. The real game is
+> spending five slots well: 1 id where the retriever is confident (precision 1.0
+> at no recall cost), 5 where it is not.
+
+## 5. Task 2 — LegalQA
+
+Same corpus. Questions are an object keyed by id; the `answer` is **long prose**:
+
+```json
+{"id": {"question": "Trách nhiệm của tổ chức đấu thầu...",
+        "answer": "Theo Điều 37 Nghị định 153/2020/NĐ-CP, được sửa đổi bởi khoản 26 Điều 1 Nghị định 65/2022/NĐ-CP quy định cụ thể:\n- Tuân thủ quy định...\n- Thực hiện chế độ báo cáo..."}}
+```
+
+### Submission format
+```json
+{"9001": {"answer": "Theo Điều 37 ... quy định cụ thể: - ..."}}
+```
+
+### Scoring
+
+From [`btc_eval/scoring_legalqa.py`](../../phases/0_harness/btc_eval/scoring_legalqa.py):
+
+| Metric | Role | Implementation |
+|---|---|---|
+| **METEOR** | **primary** | `nltk.translate.meteor_score`, macro-averaged |
+| ROUGE-L | secondary | `rouge_score.RougeScorer(['rougeL'], use_stemmer=False)` |
+
+Two details that shape the whole approach:
+
+1. **No word segmentation.** The `ViTokenizer` call is *commented out* in their
+   source; scoring is over plain `.split()` whitespace tokens.
+2. **METEOR is recall-weighted** (NLTK's default α=0.9) and penalises
+   fragmentation. Long answers that cover the reference's content **in the
+   reference's order** score well. Terse answers are punished — which is why the
+   `concise` prompt is a control here, not a favourite, and why `mimic` (which
+   reproduces the reference's "Theo … quy định: - …" shape) usually wins.
+
+Same key-count rule: a missing question makes the submission fail.
+
+## 6. Model and data rules
+
+Source: BTC's consolidated Q&A email, 02/08.
+
+- **< 4 billion parameters total per task**, summed over **every component**,
+  explicitly **including the embedding layer**.
+- **Distillation is fine** — if the distilled model is itself under 4B, it is legal.
+- **LoRA and quantization do NOT make a >4B model legal.** BTC states this
+  directly: those techniques change bits-per-parameter or trainable-parameter
+  count, not the parameter count. Using a >4B base means more pretrained
+  information, which is the unfairness the rule exists to prevent.
+- **No APIs at all** — including free/non-commercial ones. Only open-weight
+  models you hold and control locally.
+- **No commercial products.** Licences must permit non-profit research/education.
+- **BTC data only. No data augmentation. No external data.**
+  - Clarification: a pretrained model's own training corpus does **not** count as
+    external data — you are using an estimator, not the corpus.
+- **Packaging:** Docker is optional. GitHub or a zip is fine. Downloading weights
+  from the internet at run time is fine, provided they are open/non-commercial.
+  What matters is a README with step-by-step reproduction that BTC can follow.
+
+## 7. The paper
+
+Source: BTC email, 08/08. Ranked teams are invited to submit to *Tạp chí Phát
+triển Khoa học và Công nghệ ĐHQG-HCM* (peer-reviewed).
+
+BTC asks each paper to have:
+- a **hypothesis/assumption** about how to solve the task, tested experimentally;
+- **enough scenarios** to actually test it;
+- **numbers and analysis** for every method tried: why was this one not good
+  enough, where exactly did it fall short, and what weakness did the next method fix?
+
+Their research question, verbatim in substance:
+
+> With limited compute (systems under 4B parameters) and modest data (~10k points
+> per task), how do pure deep-learning methods compare against methods that
+> leverage the power of large language models?
+
+And explicitly: **the approach is not limited to models/systems — it extends to
+data-processing strategies**, within the no-augmentation / no-external-data rules.
+That makes the chunking-granularity ablation a first-class contribution, not
+plumbing.

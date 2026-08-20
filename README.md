@@ -17,13 +17,20 @@ make help       # every other command
 
 | Constraint | Value |
 |---|---|
-| Public Test closes | **18/09** |
+| Public Test | **06/08 → end of 18/09/2026** (already open) |
 | Private Test | **19–23/09** |
-| Parameter ceiling | **< 4B total per task**, summed over every component |
-| External APIs | **forbidden** |
-| Data | **BTC data only**, no augmentation |
-| Task 1 metric | **Recall primary, Precision tiebreak** |
-| Submission channel | through the **registered Organization** on Codabench |
+| Parameter ceiling | **< 4B total per task**, every component, embedding layer included |
+| LoRA / quantization | do **not** make a >4B model legal. Distillation does, if the distilled model is <4B |
+| External APIs | **forbidden**, including free ones |
+| Data | **BTC data only**, no augmentation, no external data |
+| **Task 1 answer set** | **at most 5 document ids per question — 6 scores ZERO on both metrics** |
+| Task 1 metric | **Recall** primary, **Precision** tiebreak, macro-averaged |
+| Task 2 metric | **METEOR** primary, **ROUGE-L** secondary, macro-averaged |
+| Submissions | 10/day, best-of-day on the leaderboard, **through the registered Organization** |
+| Codabench | [Task 1](https://www.codabench.org/competitions/17715/) · [Task 2](https://www.codabench.org/competitions/17716/) |
+
+Full transcription with sources: [`docs/reference/09_official_rules.md`](docs/reference/09_official_rules.md).
+**That page overrides every other page in this repo.**
 
 **Do today:** register the full candidate model list —
 [`phases/0_harness/00_model_registration.md`](phases/0_harness/00_model_registration.md).

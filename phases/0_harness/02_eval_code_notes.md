@@ -1,6 +1,12 @@
 # Task B2 — Reading BTC's evaluation source (ANSWER IN WRITING)
 
 > **TODO(TEAM/phase0-B2): answer every question below with a line reference into BTC's code.**
+>
+> Their scoring programs are vendored verbatim in [`btc_eval/`](btc_eval/) — read
+> `scoring_legalir.py` (40 lines). The answers are summarised in
+> [`docs/reference/09_official_rules.md`](../../docs/reference/09_official_rules.md) §4,
+> but write them out yourself: the point of this task is that the whole team has read
+> the two lines that decide the cutoff strategy.
 
 Put their published scoring script in `phases/0_harness/btc_eval/` (do not modify it —
 `evaluate.py` imports it). Read it **line by line**, both tasks. Every answer below needs
@@ -10,7 +16,10 @@ a line reference into their file, not a recollection.
 
 ## Q1. Is the number of returned documents capped?
 
-> ANSWER (with line ref):
+> **YES — at 5, and exceeding it scores ZERO** (not truncation).
+> `scoring_legalir.py` line 32-33: `... if len(y_pred.get(k)) > 0 and len(y_pred.get(k)) <= 5 else 0`
+>
+> Confirm this yourself and note anything the Public Test data changes:
 
 If not — what stops a trivial "return the whole corpus" submission?
 Possibilities to check for explicitly in their code:

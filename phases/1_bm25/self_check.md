@@ -41,10 +41,9 @@ you are in*, and that granularity decides it.
 > scores is one the retriever cannot separate, and casting a wider net is the
 > only way to capture the relevant document.
 >
-> That said, clamp it: `min_k ≥ 1` (an empty set scores zero Recall on that query
-> and can never be recovered) and `max_k` at something sane (a 500-document
-> answer set destroys Precision and may be rejected outright — check the Phase 0
-> notes on whether BTC caps set size).
+> The clamp is not optional here: `1 ≤ |set| ≤ 5`. An empty set scores zero, and
+> so does a 6-document set — BTC's scorer zeroes both metrics for that question.
+> `src/cutoff.py` enforces it and raises if you try to set `max_k` above 5.
 >
 > **What would be a bug:** the set size not varying at all. That means the scores
 > are degenerate — usually a sign that the query matched no indexed terms and

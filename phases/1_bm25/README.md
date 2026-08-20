@@ -116,9 +116,10 @@ python phases/1_bm25/grid_search.py --corpus data/processed/corpus_article.jsonl
 
 ### Task B4 — Sweep the answer-set cutoff  ← the figure for the paper
 ```bash
-python phases/1_bm25/cutoff_sweep.py --run experiments/runs/<best>.jsonl --plot
+python phases/1_bm25/cutoff_sweep.py --run work/experiments/runs/<best>.jsonl --plot
 ```
-Score top-k for k = 1…20 **and** the score-ratio rule (keep docs above α × top score).
+Score top-k for **k = 1…5** (BTC's hard cap — a 6-id answer scores zero) **and** the
+score-ratio rule (keep docs above α × top score).
 Plot Precision, Recall and the official score against the cutoff.
 **Done when:** `analysis/fig_cutoff_sweep.png` exists and you can explain the crossover.
 

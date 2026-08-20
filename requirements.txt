@@ -27,3 +27,8 @@ peft>=0.11              # LoRA
 # --- docs / analysis ---
 python-docx>=1.1        # reading the BTC data-overview .docx
 matplotlib>=3.8
+
+# --- Task 2 scoring (BTC's own metric; see phases/0_harness/btc_eval/) ---
+nltk>=3.8               # METEOR; needs the wordnet corpus downloaded once
+absl-py>=1.4            # required by the vendored rouge_score package
+six>=1.16

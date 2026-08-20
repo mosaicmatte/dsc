@@ -23,11 +23,18 @@ from memory, you will misread your own dev numbers for the next four weeks.
 > set size. Precision's denominator is `|predicted|` — which you control — so
 > every non-relevant document you add strictly lowers it.
 >
-> **What BTC does about it: answer this from their source, not from here.**
-> Record it in `02_eval_code_notes.md` with a line reference. The three
-> possibilities are (a) a hard cap on set size, (b) Precision entering the
-> ranking so the exploit self-penalises, (c) nothing in the code and a rule in
-> the regulations instead.
+> **What BTC does about it — now confirmed from their code:** a hard cap.
+> ```python
+> ... if 0 < len(pred) <= 5 else 0
+> ```
+> A question returning more than 5 document ids scores **zero on both metrics**.
+> So the exploit is not merely unprofitable, it is actively self-destructive:
+> returning the whole corpus scores 0.0, not 1.0.
+>
+> The interesting consequence is what remains. You have five slots per question,
+> Recall is primary and Precision breaks ties, so the optimal set size varies per
+> question — one document where the retriever is confident, five where it is not.
+> That is what `src/cutoff.py` exists to decide.
 
 ### 3. Dev Recall 0.72 micro but 0.61 macro — what does that gap tell you?
 

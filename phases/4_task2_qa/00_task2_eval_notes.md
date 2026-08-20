@@ -1,6 +1,14 @@
 # Task B1 — Task 2 evaluation code notes (ANSWER IN WRITING)
 
 > **TODO(TEAM/phase4-B1): answer every question below before writing any reader code.**
+>
+> The metric is already confirmed: **METEOR primary, ROUGE-L secondary**, macro-averaged,
+> over plain `.split()` tokens (BTC's scorer has the Vietnamese tokenizer commented out).
+> Their code is vendored at
+> [`../0_harness/btc_eval/scoring_legalqa.py`](../0_harness/btc_eval/scoring_legalqa.py)
+> and summarised in
+> [`docs/reference/09_official_rules.md`](../../docs/reference/09_official_rules.md) §5.
+> Use this worksheet for the parts only the real data can answer.
 
 Same discipline as Phase 0. Line references, not recollections. **Do this before writing
 any reader code** — the answer format determines whether Baseline A is even possible.

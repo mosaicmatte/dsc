@@ -1,7 +1,13 @@
 # Start here
 
 **DSC@UIT 2026 — Legal IR (Task 1) + Legal QA (Task 2).**
-Public Test closes **18/09**. Under **4B parameters** per task. No APIs. BTC data only.
+
+Public Test is **open now** (06/08 → 18/09). Under **4B parameters** per task, no APIs,
+BTC data only. Task 1 returns **at most 5 document ids per question** — a 6th scores zero.
+
+The rules are transcribed from BTC's emails, task documents and *scoring code* in
+[`docs/reference/09_official_rules.md`](docs/reference/09_official_rules.md); that page
+overrides everything else here.
 
 ---
 
@@ -82,6 +88,18 @@ python phases/0_harness/smoke_test.py    # is my environment sane?
 python -c "from src.exp_log import correlation as c; print(c())"   # is my dev split honest?
 ```
 
+## The one rule most likely to cost you a submission
+
+BTC's scorer gives a question **zero on both metrics** if it returns more than **5**
+document ids, or none. Not truncation — zeroing.
+
+```python
+recall = mean([ |truth & pred| / |truth| if 0 < len(pred) <= 5 else 0 ])
+```
+
+`src/cutoff.py` clamps to 1..5 and raises if you try to raise `max_k`.
+`make_submission.py` refuses to write a file that would fail. Do not defeat either.
+
 ---
 
 ## When you are stuck
@@ -105,4 +123,5 @@ python -c "from src.exp_log import correlation as c; print(c())"   # is my dev s
 4. **Log every run, including the bad ones.** A negative result is a paper row. An unlogged
    run is a run you will repeat in September.
 5. **`--aggregate max` when you retrieve at chunk level and the labels are documents.**
-   Forgetting it fills your submission with ids BTC has never seen. It scores zero.
+   BTC's gold labels are whole-document ids, so a chunk id like `740#dieu3` is a
+   guaranteed miss. `make_submission.py` pre-flights for it.

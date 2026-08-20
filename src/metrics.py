@@ -1,31 +1,46 @@
-"""Retrieval metrics.
+"""Retrieval metrics — matched to BTC's published scorer.
 
-Two families, and the difference matters for this competition:
+THE OFFICIAL RULE (verbatim from phases/0_harness/btc_eval/scoring_legalir.py)
+------------------------------------------------------------------------------
+    recall    = mean_k [ |truth_k & pred_k| / |truth_k|  if 0 < len(pred_k) <= 5 else 0 ]
+    precision = mean_k [ |truth_k & pred_k| / len(pred_k) if 0 < len(pred_k) <= 5 else 0 ]
 
-* **Set-based** (Precision, Recall, F1, F2) score an *answer set* of whatever
-  size you chose. Order inside the set is irrelevant.
-* **Rank-based** (Recall@k, MRR, MAP, nDCG) score a *ranking* truncated at a
-  fixed k. They are diagnostics for the retriever, not the leaderboard metric.
+Four consequences, each of which has a way of costing you the whole submission:
 
-Task 1 is scored set-based (Recall primary, Precision tiebreak), which is why
-``src/cutoff.py`` exists at all: choosing how many documents to return per query
-is a model component, not a formatting detail.
+1. **At most 5 document_ids per question.** Return 6 and that question scores
+   ZERO on *both* metrics — not a truncation, a zeroing. `src/cutoff.py` clamps
+   at MAX_DOCS_PER_QUERY for this reason and you should never raise it.
 
-Micro vs macro is NOT a detail either. Until Phase 0 has read BTC's evaluation
-source, we compute both and report both; ``phases/0_harness/eval_code_notes.md``
-records the answer and ``OFFICIAL_AVERAGING`` below gets set to match.
+2. **MACRO averaging.** `.mean()` over per-question ratios; every question
+   weighs the same regardless of how many relevant documents it has.
+
+3. **The precision denominator is `len(pred_k)`, NOT `len(set(pred_k))`.**
+   A duplicated doc_id inflates the denominator, lowers precision, and still
+   counts toward the cap. De-duplicate before submitting — `set_scores` below
+   deliberately does NOT de-duplicate, so our numbers match theirs.
+
+4. **A missing or extra question is a hard failure, not a zero.** Their code
+   raises if `len(pred) != len(truth)`, and indexes `y_pred[k]` for every gold
+   k. An incomplete submission errors out rather than scoring badly.
+
+Ranking: Recall is primary, Precision breaks ties (confirmed by BTC on
+02/08/2026 after an earlier email stated the reverse).
+
+Rank-based metrics further down (Recall@k, MRR, MAP, nDCG) are retriever
+DIAGNOSTICS, not the leaderboard metric. Recall@k in particular is the ceiling
+that every downstream stage inherits.
 """
 from __future__ import annotations
 
 import math
 from typing import Dict, Iterable, List, Sequence, Set
 
-# Set in Phase 0 from BTC's published evaluation code: "micro" or "macro".
-# TODO(BLOCKER/phase0-B2): confirm against BTC's evaluation source and change if
-# needed. Look for `sum(hits)/sum(rel)` (micro) vs `mean(hits_i/rel_i)` (macro).
-# Every dev number in the repo is reported under this setting; getting it wrong
-# means tuning against a metric nobody is scoring you on.
+# CONFIRMED against BTC's scorer (btc_eval/scoring_legalir.py): `.mean()` over
+# per-question ratios. Verified by `evaluate.py --cross-check`.
 OFFICIAL_AVERAGING = "macro"
+
+# Confirmed against BTC's scorer: `len(pred) <= 5` else the question scores 0.
+MAX_DOCS_PER_QUERY = 5
 
 
 # --------------------------------------------------------------------------
@@ -47,28 +62,44 @@ def set_scores(
     predictions: Dict[str, Sequence[str]],
     qrels: Dict[str, Set[str]],
     beta: float = 1.0,
+    enforce_cap: bool = True,
 ) -> Dict[str, float]:
-    """Micro- and macro-averaged Precision/Recall/F over all queries in qrels.
+    """Official (macro) scores plus micro variants for diagnosis.
 
-    A query present in ``qrels`` but missing from ``predictions`` counts as an
-    empty prediction (precision undefined -> 0, recall 0). Silently dropping it
-    would inflate the score, which is exactly the bug that makes a dev harness
-    disagree with the leaderboard.
+    Matches BTC's scorer exactly when ``enforce_cap`` is True (the default):
+    a question with 0 or >MAX_DOCS_PER_QUERY predictions contributes 0 to both
+    metrics, and the precision denominator is the RAW list length.
+
+    ``enforce_cap=False`` is for analysis only — e.g. asking "what would recall
+    be if we were allowed 20 documents?" Never report that number as a score.
     """
     tp = npred = nrel = 0
     macro_p = macro_r = macro_f = 0.0
-    n = 0
+    n = n_capped = n_empty = 0
     for qid, rel in qrels.items():
-        pred = list(dict.fromkeys(predictions.get(qid, [])))  # dedupe, keep order
-        hit = len(set(pred) & rel)
+        pred = list(predictions.get(qid, []))      # NO dedup: matches BTC
+        over = enforce_cap and len(pred) > MAX_DOCS_PER_QUERY
+        empty = len(pred) == 0
+        if over:
+            n_capped += 1
+        if empty:
+            n_empty += 1
+
+        if over or empty:
+            p = r = f = 0.0
+            hit = 0
+        else:
+            hit = len(set(pred) & rel)
+            p, r, f = _prf(hit, len(pred), len(rel), beta)
+
         tp += hit
         npred += len(pred)
         nrel += len(rel)
-        p, r, f = _prf(hit, len(pred), len(rel), beta)
         macro_p += p
         macro_r += r
         macro_f += f
         n += 1
+
     n = max(n, 1)
     mi_p, mi_r, mi_f = _prf(tp, npred, nrel, beta)
     return {
@@ -76,6 +107,8 @@ def set_scores(
         "macro_precision": macro_p / n, "macro_recall": macro_r / n,
         f"macro_f{beta:g}": macro_f / n,
         "n_queries": float(n),
+        "n_over_cap": float(n_capped),
+        "n_empty": float(n_empty),
         "avg_pred_size": npred / n,
         "avg_rel_size": nrel / n,
     }
@@ -98,6 +131,43 @@ def official(
     s.update({"primary_recall": rec, "tiebreak_precision": prec,
               "averaging": avg, "sort_key": (rec, prec)})
     return s
+
+
+def check_submittable(predictions: Dict[str, Sequence[str]],
+                      qids: Sequence[str]) -> List[str]:
+    """Return the reasons BTC's scorer would REJECT this submission (empty = ok).
+
+    Their scorer raises rather than scoring badly, so these are hard errors:
+      * a different number of questions than the reference
+      * a gold question absent from the submission
+    Plus the two silent score-killers we can also detect here.
+    """
+    problems = []
+    missing = [q for q in qids if q not in predictions]
+    extra = [q for q in predictions if q not in set(qids)]
+    if missing:
+        problems.append(f"{len(missing)} questions missing from the submission "
+                        f"(e.g. {missing[:5]}) — BTC's scorer RAISES on this, "
+                        f"the submission fails outright")
+    if extra:
+        problems.append(f"{len(extra)} questions in the submission that are not in "
+                        f"the reference (e.g. {extra[:5]}) — count mismatch, "
+                        f"the submission fails outright")
+    over = [q for q, v in predictions.items() if len(v) > MAX_DOCS_PER_QUERY]
+    if over:
+        problems.append(f"{len(over)} questions return more than "
+                        f"{MAX_DOCS_PER_QUERY} documents (e.g. {over[:5]}) — "
+                        f"each scores ZERO on both metrics")
+    dup = [q for q, v in predictions.items() if len(v) != len(set(v))]
+    if dup:
+        problems.append(f"{len(dup)} questions contain duplicate doc_ids "
+                        f"(e.g. {dup[:5]}) — duplicates inflate the precision "
+                        f"denominator and count toward the {MAX_DOCS_PER_QUERY} cap")
+    empty = [q for q, v in predictions.items() if not v]
+    if empty:
+        problems.append(f"{len(empty)} questions have an empty prediction "
+                        f"(e.g. {empty[:5]}) — each scores ZERO; raise min_k")
+    return problems
 
 
 def compare(a: Dict[str, float], b: Dict[str, float]) -> int:
