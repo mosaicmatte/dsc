@@ -33,6 +33,10 @@ Notes from BTC:
 
 ## 2. Model registration — BLOCKS YOUR SUBMISSIONS BEING VALID
 
+> **A ready-to-paste submission is already compiled for you:**
+> [`REGISTRATION_SUBMIT.md`](REGISTRATION_SUBMIT.md) — open it, copy the four blocks
+> into the form, submit. Then log it in §5 below.
+
 **Registration form:** https://forms.gle/HWE7tcxzWq63Kxv28
 **Public approved list:** https://docs.google.com/spreadsheets/d/1c5jzsYezWho1WGLRfMKWOaFPLIk_GTnXP5vV8AOWM2Q/edit
 
@@ -151,7 +155,7 @@ From BTC's model-registration email, 05/08:
 
 | Date | Action | Outcome |
 |---|---|---|
-| | Data-usage commitment submitted | |
+| 2026-08-__ | Data-usage commitment submitted | ✅ done |
 | | Decided: register `pyvi` **or** switch to `underthesea` | |
 | | Extra models registered (list them) | |
 | | Re-checked the approved list | |
