@@ -1,4 +1,10 @@
 run_id,date,task,phase,chunking,retriever,negatives,reranker,cutoff_rule,dev_P,dev_R,dev_official,leaderboard,n_params,config,git_tag,seed,notes
 bm25-article-publictest,2026-08-20,1,1,,,,,top_k:5,,,,PENDING,,,,,"SUBMITTED bm25-article-publictest.zip; BM25 article-chunked, k1=1.2 b=0.75, agg=max, dev R=0.7410"
+task2-echo-question,2026-08-20,2,4,article,"bm25(k1=1.2,b=0.75,seg=none)",,,top_k=1,0.1300,0.0677,0.0677,,0,,,,"the question itself; median 19 words; dev_R=METEOR, dev_P=ROUGE-L"
+task2-bm25-passage-150w,2026-08-20,2,4,article,"bm25(k1=1.2,b=0.75,seg=none)",,,top_k=1,0.3459,0.2091,0.2091,,0,,,,"BM25 top-1 passage cut to 150 words; median 150 words; dev_R=METEOR, dev_P=ROUGE-L"
+task2-bm25-passage-310w,2026-08-20,2,4,article,"bm25(k1=1.2,b=0.75,seg=none)",,,top_k=1,0.3943,0.3041,0.3041,,0,,,,"BM25 top-1 passage cut to 310 words; median 310 words; dev_R=METEOR, dev_P=ROUGE-L"
 bm25-doc-real,2026-08-20,1,1,document,"bm25(k1=1.2,b=0.75,seg=none,agg=None)",-,-,top_k:5,0.0784,0.3680,0.3680,,0,,,,recall@100=0.7271
 bm25-article-real,2026-08-20,1,1,article,"bm25(k1=1.2,b=0.75,seg=none,agg=max)",-,-,top_k:5,0.1575,0.7410,0.7410,,0,,,,recall@100=0.9395
+task2-bm25-passage,2026-08-20,2,4,,task2-retrieval.jsonl,,,top_k=1,0.3583,0.3548,0.3548,,0,,,,"extractive mode=passage; dev_R=METEOR, dev_P=ROUGE-L (Task 2 metrics)"
+task2-bm25-passage-publictest,2026-08-20,2,4,,task2-retrieval-publictest.jsonl,,,top_k=1,,,,,0,,,,extractive mode=passage model=None
+task2-bm25-passage,2026-08-20,2,4,,,,,,,,,PENDING,,,,,"TASK2 SUBMITTED task2-bm25-passage.zip; mean_len=1601w; BM25 top-1 article passage, zero parameters; dev METEOR 0.3548"

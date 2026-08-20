@@ -19,15 +19,20 @@ in the top-k, no reader can produce a grounded answer — it will hallucinate so
 plausible instead, and you will spend two days blaming the generator.
 
 > ### ⚠ Task 1 data may not be used here (BTC email, 20/08/2026)
-> BTC ruled that the two tasks are independent and share neither questions nor
-> contexts, so **you may not use Task 1 data for Task 2 or vice versa**. In this
-> phase that means: do **not** load a Phase 2/3 checkpoint fine-tuned on Task 1
-> pairs, and do **not** retrieve over Task 1's corpus. Task 2 ships its own
-> `selected-contexts.zip` — ingest it separately to
-> `data/processed/task2_corpus.jsonl`. Reusing the *method* (chunking scheme,
-> hyper-parameters, fusion weights) is fine; a recipe is not data.
-> `retrieval_stage.py` refuses the detectable violations. Full text:
+> BTC ruled the two tasks independent, so **you may not use Task 1 data for Task
+> 2 or vice versa**. Concretely: do **not** load a Phase 2/3 checkpoint
+> fine-tuned on Task 1 pairs, and do **not** touch Task 1's `queries_*.jsonl`.
+>
+> The **corpus is shared** and using it is fine — BTC ships the byte-identical
+> `selected-contexts.zip` to both tasks (SHA-256 verified). Reusing the *method*
+> is fine too; a recipe is not data. `retrieval_stage.py` refuses the detectable
+> violations. Full text:
 > [`09_official_rules.md` §6](../../docs/reference/09_official_rules.md).
+>
+> **The consequence that actually bites:** Task 2 ships **no retrieval labels**
+> — `train.json` is `{question, prose answer}` and nothing else. You cannot train
+> a retriever the Phase 2 way here, and you cannot borrow Task 1's. BM25 or a
+> zero-shot encoder is the honest starting point.
 
 So: **measure retrieval quality on the Task 2 data separately, before touching the reader.**
 Task 2's questions are not the same distribution as Task 1's queries — they may be longer,
@@ -48,6 +53,17 @@ That is Task B2 below, and it is not optional.
 **BTC's answers are long, structured prose**, e.g. *"Theo Điều 37 Nghị định
 153/2020/NĐ-CP … quy định cụ thể: - … - …"*. They are not spans, so a pure extractive head
 cannot reach them.
+
+This is now **measured, not assumed** (20/08/2026, 1,050 dev questions):
+
+| | |
+|---|---|
+| gold answer length | median **309 words**, p95 692, max 2,435 |
+| gold answers appearing verbatim in any retrieved passage | **0 / 1050** |
+
+So `--mode span` has a ceiling of zero on exact match and Q2 in
+[`00_task2_eval_notes.md`](00_task2_eval_notes.md) is settled. `--mode passage`
+still scores, because METEOR is not exact match — see the baseline table below.
 
 **The metric is METEOR (primary) and ROUGE-L (secondary)**, macro-averaged, computed on
 plain whitespace tokens — BTC's scorer has the Vietnamese tokenizer commented out. METEOR

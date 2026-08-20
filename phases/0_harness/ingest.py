@@ -283,7 +283,14 @@ def validate(corpus_path=f"{PROC}/corpus_document.jsonl",
         if noq:
             print(f"  FAIL: {len(noq)} queries with empty text, e.g. {noq[:5]}")
             ok = False
-        if norel:
+        if norel and len(norel) == len(qs) and "task2" in os.path.basename(qp):
+            # Expected: Task 2 ships prose answers and no document ids at all.
+            n_ans = sum(1 for q in qs if q.get("answer"))
+            print(f"  note: no relevant docs, by design — Task 2 has no retrieval "
+                  f"labels ({n_ans}/{len(qs)} carry a gold prose answer). You "
+                  f"cannot train a retriever on pairs here, and BTC forbids "
+                  f"borrowing Task 1's.")
+        elif norel:
             print(f"  WARN: {len(norel)} queries with no relevant docs "
                   f"(check whether this is a labelling gap or intentional)")
         # Questions whose ONLY gold documents are empty can never be answered by

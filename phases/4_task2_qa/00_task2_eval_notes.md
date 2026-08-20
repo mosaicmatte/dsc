@@ -38,6 +38,12 @@ print(f'{hit}/{len(d)} answers appear verbatim in their context')"
 
 > ANSWER: ___/___ verbatim
 >
+> *Already measured on the real data (20/08/2026), so use this to check your own
+> answer rather than to skip the exercise:*
+> `python phases/4_task2_qa/baseline_extractive.py --oracle-ceiling` returns
+> **0/1050** on the dev split. Gold answers cite the statute and restructure it;
+> none is a verbatim span. Median gold length is 309 words.
+>
 > **If most are verbatim → extractive (Baseline A) is viable and cheap.**
 > **If few are → extraction cannot reach the gold answers; go generative.**
 

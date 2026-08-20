@@ -21,12 +21,33 @@ Task 1 data may NOT be used for Task 2, and vice versa. Concretely:
 
   * FORBIDDEN — a bi-encoder or reranker checkpoint fine-tuned in Phase 2/3 on
     Task 1 (question, document) pairs. Those weights ARE Task 1 data.
-  * FORBIDDEN — retrieving over Task 1's corpus (corpus_document.jsonl /
-    corpus_article.jsonl). Task 2 ships its own selected-contexts.zip; use it.
+  * FORBIDDEN — Task 1's question files (queries_train / queries_dev /
+    queries_train_split / queries_public_test). Different questions, different
+    task, and the labels are the thing BTC is ring-fencing.
+  * ALLOWED — the corpus. BTC ships the SAME selected-contexts.zip for both
+    tasks; the two downloads are byte-identical:
+
+        ebcfc896df06087e7da532b4653f32adfaba2200c8ed92a0069e46dbfa126a97
+        LegalIR - Public Test/selected-contexts.zip
+        LegalQA - Public Test/selected-contexts.zip
+
+    So "khong giao nhau ve context" means the two tasks' *gold* contexts do not
+    overlap, not that the corpora differ — they are the same 8,532 documents.
+    Retrieving Task 2 questions over corpus_document.jsonl / corpus_article.jsonl
+    is therefore using Task 2's own corpus, and is fine. Re-ingesting the
+    identical zip to a task2_ filename would buy nothing but a second 455 MB.
   * ALLOWED — the same off-the-shelf pretrained model, loaded fresh from the Hub
     and fine-tuned on Task 2 data only.
   * ALLOWED — the same *method*: chunking scheme, hyper-parameters, fusion
     weights, cutoff rule. A recipe is not data.
+
+THE HARD PART OF TASK 2 RETRIEVAL
+---------------------------------
+Task 2 gives you NO retrieval labels. Its train.json is {question, prose answer}
+— there is no list of gold document ids anywhere, and you may not borrow Task 1's.
+So the retriever here cannot be trained the way Phase 2 trains one. It has to be
+BM25, or an off-the-shelf encoder used zero-shot, or something you supervise from
+the answers themselves. Decide that consciously; do not drift into it.
 
 The guard below refuses the violations detectable from the command line. It
 cannot read your mind about a local checkpoint path, so keep Task 1 and Task 2
@@ -59,15 +80,19 @@ from src import dense, exp_log, io_utils, metrics, normalize  # noqa: E402
 
 # BTC forbids using Task 1 data for Task 2 (email 20/08/2026). These are the
 # violations detectable from the command line alone.
-TASK1_CORPUS_MARKERS = ("corpus_document", "corpus_article", "corpus_chunk")
+# NOT the corpus: BTC ships the identical selected-contexts.zip to both tasks
+# (SHA-256 verified, see the module docstring), so the corpus is shared data.
+# What is ring-fenced is Task 1's QUESTIONS and anything trained on them.
+TASK1_QUERY_MARKERS = ("queries_train", "queries_dev", "queries_public_test",
+                       "queries_train_split")
 TASK1_MODEL_MARKERS = ("task1", "phase2", "phase3", "legalir",
                        "/1_bm25/", "/2_dense/", "/3_rerank/")
 
 
 def _guard_cross_task(a) -> None:
     bad = []
-    if any(m in a.corpus for m in TASK1_CORPUS_MARKERS):
-        bad.append("--corpus " + a.corpus + " is Task 1's corpus")
+    if any(m in a.queries for m in TASK1_QUERY_MARKERS):
+        bad.append("--queries " + a.queries + " is a Task 1 question file")
     for flag, val in (("--model", a.model), ("--reranker", a.reranker)):
         if val and any(m in val.lower() for m in TASK1_MODEL_MARKERS):
             bad.append(flag + " " + val + " looks like a Task 1 checkpoint")
@@ -91,9 +116,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--queries", default="data/processed/task2_dev.jsonl")
-    ap.add_argument("--corpus", default="data/processed/task2_corpus.jsonl",
-                    help="Task 2's OWN contexts. Task 1's corpus is off-limits "
-                         "(BTC 20/08/2026).")
+    ap.add_argument("--corpus", default="data/processed/corpus_article.jsonl",
+                    help="the shared corpus — BTC ships the same "
+                         "selected-contexts.zip for both tasks (byte-identical), "
+                         "so this is Task 2's own corpus too")
     ap.add_argument("--model", required=True,
                     help="bi-encoder. Must NOT be a checkpoint fine-tuned on "
                          "Task 1 data — use an off-the-shelf pretrained model, "

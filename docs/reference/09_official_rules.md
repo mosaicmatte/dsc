@@ -122,6 +122,27 @@ precision = mean([ |truth&pred| / len(pred) if 0 < len(pred) <= 5 else 0 ])
 
 ## 5. Task 2 — LegalQA
 
+### Data (measured 20/08/2026 on the Public Test drop)
+
+| File | Content |
+|---|---|
+| `train.json` | **7,000** questions, `{"question": str, "answer": str}` |
+| `public-official.json` | **1,000** questions, `"answer": null` |
+| `selected-contexts.zip` | **identical to Task 1's** (SHA-256 above) — 8,532 documents |
+| `DSC2026_Task2_LegalQA_Data_Overview.docx` | the task document |
+
+**Task 2 ships no retrieval labels.** The gold `answer` is prose, not a list of
+document ids, and there is no other field. So a Task 2 retriever cannot be
+trained on (question, document) pairs the way Phase 2 trains one, and Task 1's
+pairs are off-limits. BM25 or a zero-shot encoder is the honest starting point.
+
+Gold answers are long: median **309 words**, p25 218, p75 439, p95 692, max
+2,435 — and **none of them appears verbatim in any retrieved passage**
+(`baseline_extractive.py --oracle-ceiling` returns 0/1050). They are synthesised
+prose that cites and restructures the statute, not extracted spans. A span
+reader is therefore the wrong tool; the question is which *generator*.
+
+
 Same corpus. Questions are an object keyed by id; the `answer` is **long prose**:
 
 ```json
@@ -183,12 +204,30 @@ Source: BTC's consolidated Q&A email, 02/08.
   | | verdict |
   |---|---|
   | Phase 2/3 bi-encoder or reranker **checkpoint** fine-tuned on Task 1 pairs, reused for Task 2 | **forbidden** — the weights are Task 1 data |
-  | Retrieving Task 2 questions over Task 1's `corpus_*.jsonl` | **forbidden** — Task 2 ships its own `selected-contexts.zip` |
+  | Task 1's question files (`queries_*.jsonl`) used anywhere in Task 2 | **forbidden** — the questions and labels are the ring-fenced part |
+  | Retrieving Task 2 questions over `corpus_document.jsonl` / `corpus_article.jsonl` | **allowed** — see below |
   | The same off-the-shelf pretrained model, loaded fresh and fine-tuned on Task 2 data only | allowed |
   | The same *method* — chunking scheme, k1/b, fusion weights, cutoff rule | allowed, a recipe is not data |
 
-  `phases/4_task2_qa/retrieval_stage.py` enforces the two detectable cases and
-  exits 2. Keep Task 1 and Task 2 checkpoints in separate directories.
+  **The corpus is shared, and that is not a loophole — it is a fact about the
+  files.** BTC ships the same `selected-contexts.zip` to both tasks. The two
+  downloads are byte-identical:
+
+  ```
+  ebcfc896df06087e7da532b4653f32adfaba2200c8ed92a0069e46dbfa126a97
+      LegalIR - Public Test/selected-contexts.zip
+      LegalQA - Public Test/selected-contexts.zip
+  ```
+
+  So *"không giao nhau về context"* means the two tasks' **gold** contexts do not
+  overlap, not that the corpora differ — they are the same 8,532 documents. The
+  question ids confirm the separation: train ∩ train, public ∩ public, and both
+  cross pairs all intersect in **0** ids (30 questions share identical *text*
+  across the two tasks, which is the only overlap of any kind).
+
+  `phases/4_task2_qa/retrieval_stage.py` refuses a Task 1 question file or a
+  Task-1-looking checkpoint and exits 2. Keep Task 1 and Task 2 checkpoints in
+  separate directories.
 - **Packaging:** Docker is optional. GitHub or a zip is fine. Downloading weights
   from the internet at run time is fine, provided they are open/non-commercial.
   What matters is a README with step-by-step reproduction that BTC can follow.

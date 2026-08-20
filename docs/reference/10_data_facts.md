@@ -202,7 +202,59 @@ The whole-document run tells the same story from the other end: its recall@100
 is only 0.7271, so *no* reranker could have taken it past 0.73. Chunking did not
 just add recall, it raised the ceiling every later stage inherits.
 
-## 6. Reproduce these numbers
+## 6. Task 2 — LegalQA, measured
+
+| | |
+|---|---|
+| train questions | **7,000** — `{"question": str, "answer": str}` |
+| public-test questions | **1,000** (`"answer": null`) |
+| corpus | **the same file as Task 1**, SHA-256 identical — 8,532 documents |
+| retrieval labels | **none at all** |
+| gold answer length (words) | min 28, p25 218, **median 309**, p75 439, p95 692, max 2,435 |
+| gold answers appearing verbatim in a retrieved passage | **0 / 1050** |
+| qid overlap with Task 1 (all four cross pairs) | **0** |
+| identical question *text* across tasks | 30 |
+
+Two facts here reshape the phase.
+
+**There are no retrieval labels.** Task 2's `answer` is prose; no field anywhere
+lists gold document ids, and BTC's 20/08 ruling forbids borrowing Task 1's. So
+the retriever cannot be trained the Phase 2 way. BM25 or a zero-shot encoder is
+the honest starting point, and any supervision has to be derived from the
+answers themselves.
+
+**Answers are synthesised, not extracted.** Not one of 1,050 gold answers appears
+verbatim in any retrieved passage. They cite the statute and restructure it
+(*"Căn cứ khoản 3 … quy định như sau: …"*). A span reader has an exact-match
+ceiling of zero.
+
+### Baselines, scored with BTC's own `eval_qa` on 1,050 dev questions
+
+| answer returned | median words | METEOR (primary) | ROUGE-L |
+|---|---|---|---|
+| the question itself | 19 | 0.0677 | 0.1300 |
+| BM25 top-1 passage, cut to 150 words | 150 | 0.2091 | 0.3459 |
+| BM25 top-1 passage, cut to 310 words | 310 | 0.3041 | **0.3943** |
+| **BM25 top-1 passage, uncut** | 497 | **0.3548** | 0.3583 |
+
+**METEOR rises monotonically with answer length; ROUGE-L peaks at the gold
+median and then falls.** The two metrics want opposite things, and METEOR is the
+one you are ranked on.
+
+The reason is in the metric definitions. NLTK's METEOR weights recall at
+α = 0.9, so a token you failed to produce costs about nine times what a spurious
+token costs — padding is nearly free, omission is not. ROUGE-L is a balanced
+F-measure, so it punishes the extra length symmetrically.
+
+**Practical rule: do not truncate a Task 2 answer to look tidy.** Cutting the
+uncut baseline to the gold median length costs 0.05 METEOR — more than most
+model changes will win back. Aim to cover everything the reference might say, in
+roughly the reference's order, and let it run long.
+
+A zero-parameter BM25 passage return scores **0.3548 METEOR**. That is the number
+any generator has to beat before it has earned its place in the system.
+
+## 7. Reproduce these numbers
 
 ```bash
 python phases/0_harness/ingest.py \
@@ -212,6 +264,13 @@ python phases/0_harness/ingest.py \
 python phases/0_harness/ingest.py --validate
 python phases/0_harness/build_dev_split.py
 python tools/data_facts.py
+
+# Task 2
+python phases/0_harness/ingest.py --task 2 \
+    --raw-queries data/raw/task2/train.json \
+    --raw-test    data/raw/task2/public-official.json
+python phases/0_harness/build_dev_split.py \
+    --queries data/processed/task2_train.jsonl --prefix task2
 ```
 
 `tools/data_facts.py` regenerates every table above from
@@ -237,3 +296,8 @@ trusting this page.
 5. For Task 2, a teammate suggests stripping diacritics from generated answers
    "to make matching easier". Using the table in §4.3, quantify how bad that
    idea is on each metric, and explain why the two metrics disagree so violently.
+6. Your Task 2 generator produces tidy 200-word answers and scores 0.26 METEOR,
+   below the 0.3548 zero-parameter baseline. Using §6, give the most likely
+   single cause and the change you would make first.
+7. Task 2 ships no retrieval labels and you may not use Task 1's. Name two ways
+   to get a retriever for Task 2 anyway, and say what each one costs you.
