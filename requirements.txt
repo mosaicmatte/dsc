@@ -1,0 +1,29 @@
+# --- core ---
+numpy>=1.24,<2.3
+scipy>=1.10
+pandas>=2.0
+tqdm>=4.66
+PyYAML>=6.0
+
+# --- lexical retrieval ---
+rank_bm25>=0.2.2
+
+# --- Vietnamese preprocessing ---
+pyvi>=0.1.1
+underthesea>=6.7.0
+
+# --- dense retrieval / reranking (phases 2-4) ---
+torch>=2.1
+transformers>=4.40
+sentence-transformers>=3.0
+accelerate>=0.30
+datasets>=2.18
+faiss-cpu>=1.7.4        # swap for faiss-gpu if available
+
+# --- Task 2 generation (phase 4) ---
+peft>=0.11              # LoRA
+# vllm                  # optional, only if a GPU box is available
+
+# --- docs / analysis ---
+python-docx>=1.1        # reading the BTC data-overview .docx
+matplotlib>=3.8

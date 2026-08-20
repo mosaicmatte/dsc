@@ -1,0 +1,1 @@
+run_id,date,task,phase,chunking,retriever,negatives,reranker,cutoff_rule,dev_P,dev_R,dev_official,leaderboard,n_params,config,git_tag,seed,notes

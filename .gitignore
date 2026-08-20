@@ -1,0 +1,34 @@
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+
+# --- input data: never committed ---
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/fixture/
+
+# --- model weights and indexes ---
+models/
+*.pt
+*.bin
+*.safetensors
+indexes/
+
+# --- generated artefacts under work/ ---
+# runs and predictions are regenerable from work/configs/, so they are ignored.
+# runs.csv is NOT regenerable and IS committed — it is the paper's ablation table.
+work/experiments/runs/*
+!work/experiments/runs/.gitkeep
+work/experiments/predictions/*
+!work/experiments/predictions/.gitkeep
+work/submissions/*
+!work/submissions/.gitkeep
+
+# work/configs/ and work/analysis/ ARE committed: frozen configs reproduce runs,
+# and the analysis markdown is the paper's evidence.
+!work/analysis/.gitkeep
+!work/configs/.gitkeep

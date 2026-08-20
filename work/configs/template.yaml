@@ -1,0 +1,88 @@
+# Run configuration template.
+#
+# Copy this, edit it, pass it with --config. On execution the RESOLVED config
+# (defaults filled in, CLI overrides applied) is frozen to configs/<run_id>.yaml.
+# That frozen copy, not this template, is what reproduces the run.
+#
+#   python <script> --config configs/my_run.yaml --set retriever.b=0.5
+#
+# run_id is derived from a hash of this file's contents, so two identical configs
+# produce the same run_id — which makes an accidental duplicate run obvious.
+
+task: 1                      # 1 = LegalIR, 2 = LegalQA
+phase: 2
+seed: 42
+
+data:
+  corpus: data/processed/corpus_article.jsonl
+  train:  data/processed/queries_train_split.jsonl
+  dev:    data/processed/queries_dev.jsonl
+  test:   data/processed/queries_public_test.jsonl
+
+chunking:
+  granularity: article       # document | article | clause
+  window: null               # sliding window size in words, null = off
+  stride: 192
+  min_chars: 30
+  aggregate: max             # collapse chunk scores to parent: max | sum | mean | null
+                             # REQUIRED whenever gold labels are at document level
+
+lexical:
+  enabled: true
+  segmenter: none            # none | pyvi | underthesea
+  stopwords: false
+  k1: 1.2
+  b: 0.75
+  depth: 100
+
+dense:
+  enabled: true
+  model: AITeamVN/Vietnamese_Embedding
+  registry_as: null          # for a fine-tuned local path: which REGISTRY entry's format
+  batch_size: 64
+  depth: 100
+  train:
+    round: 2                 # 1 = in-batch only, 2 = BM25 negs, 3 = self-mined negs
+    pairs: data/processed/train_pairs_bm25neg.jsonl
+    epochs: 2
+    batch_size: 16           # the hyperparameter that matters most for MNRL
+    lr: 2.0e-5
+    max_neg: 4
+    scale: 20.0              # 1/temperature
+    warmup_ratio: 0.1
+
+fusion:
+  method: weighted           # rrf | weighted | null
+  w_dense: 0.6               # TUNE THIS ON DEV. Do not assume 0.5.
+  rrf_k: 60
+  norm: minmax               # minmax | zscore | sum
+
+reranker:
+  enabled: true
+  model: AITeamVN/Vietnamese_Reranker
+  depth: 50                  # the ceiling: recall@depth of the input run
+  max_length: 512
+  batch_size: 64
+
+cutoff:                      # A MODEL COMPONENT. Re-sweep after every change.
+  rule: ratio                # top_k | ratio | threshold | gap
+  k: 10
+  alpha: 0.85
+  tau: 0.0
+  min_k: 1                   # >=1: an empty answer set scores zero recall, unrecoverable
+  max_k: 50
+
+# Task 2 only
+reader:
+  enabled: false
+  kind: generative           # extractive | generative
+  model: Qwen/Qwen2.5-1.5B-Instruct
+  top_k: 3                   # NOT monotonic — ablate 1/3/5
+  prompt: grounded           # minimal | grounded | cited | concise
+  max_new_tokens: 128
+  max_ctx_chars: 1500
+  temperature: 0.0           # greedy: reproducible, and sampling does not help here
+
+budget:
+  ceiling: 4000000000
+  components: []             # filled by src/params.py — verify before submitting
