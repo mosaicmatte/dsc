@@ -175,4 +175,7 @@ Key in [`self_check.md`](self_check.md).
 - [ ] Cutoff sweep figure in `work/analysis/`
 - [ ] ≥1 valid Codabench submission through the registered Organization
 - [ ] `src.exp_log.correlation()` reports `healthy`
-- [ ] 20 dev failures categorised in `analysis/error_analysis_phase1.md`
+- [ ] `python tools/error_analysis.py --run <best> --phase 1` run, and the
+      **loss decomposition** read — it says whether your next day goes on the
+      retriever, the reranker or the cutoff
+- [ ] 20 dev failures categorised in `work/analysis/error_analysis_phase1.md`

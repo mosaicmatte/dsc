@@ -212,4 +212,7 @@ Key in [`self_check.md`](self_check.md).
 - [ ] Hybrid weight sweep table in `work/analysis/`
 - [ ] Cutoff re-swept on the hybrid run
 - [ ] Running parameter total recorded — still under 4B with room for Task 2
-- [ ] 20 dev failures categorised in `analysis/error_analysis_phase2.md`
+- [ ] `python tools/error_analysis.py --run <best> --phase 2` run, and the
+      **loss decomposition** read — it says whether your next day goes on the
+      retriever, the reranker or the cutoff
+- [ ] 20 dev failures categorised in `work/analysis/error_analysis_phase2.md`

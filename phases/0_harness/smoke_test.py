@@ -194,7 +194,16 @@ def main():
     check("dev/leaderboard correlation gate works", corr["verdict"] == "healthy",
           f"spearman={corr['spearman']:.2f}")
 
-    print("\n10. optional dependencies")
+    print("\n10. exhaustive test cases")
+    import subprocess
+    tests = os.path.join(os.path.dirname(os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__)))), "tests", "test_cases.py")
+    r = subprocess.run([sys.executable, tests], capture_output=True, text=True)
+    tail = [l for l in r.stdout.strip().split("\n") if "passed" in l]
+    check("tests/test_cases.py all pass", r.returncode == 0,
+          tail[-1] if tail else "see: python tests/test_cases.py")
+
+    print("\n11. optional dependencies")
     for mod, why in [("yaml", "config freezing"), ("matplotlib", "cutoff plots"),
                      ("pyvi", "word segmentation"), ("torch", "phases 2-4"),
                      ("sentence_transformers", "phases 2-4"),

@@ -166,3 +166,5 @@ Answer without looking. Key in [`self_check.md`](self_check.md) — try first, t
 - [ ] dev split written to `data/processed/queries_dev.jsonl` with a fixed seed
 - [ ] `analysis/dataset_stats.md` written
 - [ ] `work/experiments/runs.csv` exists (even if empty)
+- [ ] `python tests/test_cases.py` passes (110 cases: scoring parity with BTC,
+      the 5-cap, degenerate input, loss attribution, cutoff, normalisation)

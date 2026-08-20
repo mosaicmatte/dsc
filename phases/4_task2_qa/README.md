@@ -172,4 +172,7 @@ Key in [`self_check.md`](self_check.md).
 - [ ] Context-size ablation table in `work/analysis/`
 - [ ] Prompt-format ablation table in `work/analysis/`
 - [ ] `python src/params.py` confirms the full Task 2 stack is under 4B
-- [ ] 20 dev failures categorised in `analysis/error_analysis_phase4.md`
+- [ ] `python tools/error_analysis.py --run <best> --phase 4` run, and the
+      **loss decomposition** read — it says whether your next day goes on the
+      retriever, the reranker or the cutoff
+- [ ] 20 dev failures categorised in `work/analysis/error_analysis_phase4.md`

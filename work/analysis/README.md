@@ -41,11 +41,46 @@ anecdotes.
 
 ## Error analysis discipline
 
-At the end of **every** phase: 20 dev failures, categorised.
+At the end of **every** phase:
 
 ```bash
-python tools/error_analysis.py --run experiments/runs/<best>.jsonl --phase 2 -n 20
+python tools/error_analysis.py --run work/experiments/runs/<best>.jsonl --phase 2 -n 20
 ```
+
+This produces three things. The middle one decides what you work on next.
+
+### The loss decomposition — read this before choosing your next task
+
+Every point of missing Recall is attributed to exactly one cause, and the
+components provably sum to the gap:
+
+```
+recall + loss_cap + loss_retrieval + loss_ranking + loss_cutoff + loss_zeroed = 1
+```
+
+| component | meaning | what fixes it |
+|---|---|---|
+| `cap` | more than 5 gold documents for that question | **nothing** — impossible by rule |
+| `retrieval` | gold never returned by the retriever | the **retriever**; a reranker cannot reach it |
+| `ranking` | retrieved, but ranked below position 5 | the **reranker** or fusion weights |
+| `cutoff` | sitting in the top-5 and not returned | the **cutoff rule** — free, one sweep |
+| `zeroed` | empty or >5 ids, so BTC scored it 0 | **self-inflicted**; clamp the cutoff |
+
+A report reading *"0.19 retrieval, 0.09 ranking, 0.04 cutoff"* tells you to spend
+the week on the retriever — and that the reranker has at most 0.09 to give, no
+matter how good it gets. The derivation is in [`src/analysis.py`](../../src/analysis.py);
+the identity is asserted over 2000 randomised cases in
+[`tests/test_cases.py`](../../tests/test_cases.py).
+
+The report also contains: integrity alarms (which invalidate everything below
+them), nested ceilings, a full cutoff what-if table, breakdowns by gold count /
+gold rank / question length / answer-set size, an optional `--compare` against an
+earlier run listing exactly which questions improved and which regressed, and a
+worksheet of the worst N questions with the dominant loss pre-computed.
+
+**The worksheet is still yours to fill in.** The script says which *kind* of fix
+applies; only you can say *why* the model made that mistake, and that is the part
+the paper needs.
 
 BTC explicitly asked for analysis of *why* a method underperformed and what the next
 method fixed. Twenty labelled failures per phase is enough to write that section — and

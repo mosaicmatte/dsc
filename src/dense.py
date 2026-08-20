@@ -27,6 +27,10 @@ class ModelSpec:
     segmented: bool          # does this model require pre-segmented input?
     max_seq: int
     params: int
+    # Is it on BTC's public approved list? A submission using an unapproved model
+    # is NOT recognised. List:
+    # https://docs.google.com/spreadsheets/d/1c5jzsYezWho1WGLRfMKWOaFPLIk_GTnXP5vV8AOWM2Q
+    approved: bool = True
     query_prefix: str = ""   # some models expect an instruction prefix
     doc_prefix: str = ""
     notes: str = ""
@@ -48,7 +52,10 @@ REGISTRY: Dict[str, ModelSpec] = {
                         "256-token limit makes chunking mandatory",
                   tags=["bi-encoder"]),
         ModelSpec("dangvantuan/vietnamese-embedding", "PhoBERT-base",
-                  True, 256, 135_000_000, tags=["bi-encoder"]),
+                  True, 256, 135_000_000, approved=False,
+                  notes="NOT on BTC's approved list as of 20/08 — register it "
+                        "before use, or use another bi-encoder",
+                  tags=["bi-encoder"]),
         ModelSpec("AITeamVN/Vietnamese_Embedding", "BGE-M3",
                   False, 8192, 568_000_000,
                   notes="long context suits full điều without truncation",
@@ -65,6 +72,18 @@ REGISTRY: Dict[str, ModelSpec] = {
                   True, 256, 135_000_000, tags=["cross-encoder"]),
     ]
 }
+
+
+def approved_or_raise(name: str) -> ModelSpec:
+    """Fail loudly before a run rather than after an invalid submission."""
+    sp = spec(name)
+    if not sp.approved:
+        raise ValueError(
+            f"{name!r} is NOT on BTC's approved model list. A submission using it "
+            f"is not recognised. Register it at https://forms.gle/HWE7tcxzWq63Kxv28 "
+            f"and wait for approval, or pick an approved model — see "
+            f"phases/0_harness/00_model_registration.md")
+    return sp
 
 
 def spec(name: str) -> ModelSpec:

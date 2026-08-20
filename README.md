@@ -56,6 +56,7 @@ docs/                python_for_cpp, onboarding, walkthrough, glossary, troubles
   reference/         optional depth: derivations, failure modes, reading list
 src/                 shared library — read it, rarely edit it
 tools/               todo list, fixture generator, error analysis
+tests/               exhaustive cases; `make test`
 data/                put BTC's files in data/raw/ — never committed
 work/                everything generated: runs, configs, analysis, submissions
 paper/               assembled from work/, not written in October
@@ -75,6 +76,7 @@ You should rarely need to modify `src/`. Read it, though — it is where the rea
 | [`dense.py`](src/dense.py) | **model registry** — who needs segmented input | before every model swap |
 | [`fusion.py`](src/fusion.py) | RRF and weighted score fusion | Phase 2 |
 | [`params.py`](src/params.py) | the 4B budget | before committing to any model |
+| [`analysis.py`](src/analysis.py) | **loss decomposition** — where every lost point of recall went | end of every phase |
 | [`exp_log.py`](src/exp_log.py) | the run log and the dev↔leaderboard gate | every run |
 | [`config.py`](src/config.py) | load, hash, freeze configs | Phase 5 |
 

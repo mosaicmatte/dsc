@@ -1,8 +1,8 @@
 # Convenience targets. Everything here is a plain command you can also type by hand —
 # nothing is hidden, and `make -n <target>` shows you exactly what would run.
-.PHONY: help setup check fixture walkthrough todo blockers log correlation budget clean
+.PHONY: help setup check test fixture walkthrough todo yours blockers log correlation budget clean
 
-PY ?= python
+PY ?= $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 
 help:  ## show this help
 	@echo "DSC@UIT 2026 — common commands"
@@ -20,6 +20,9 @@ setup:  ## create the venv and install dependencies
 check:  ## verify the install end-to-end (synthetic data, no GPU needed)
 	$(PY) phases/0_harness/smoke_test.py
 
+test:  ## run the exhaustive test cases (scoring, cutoff, attribution, text)
+	$(PY) tests/test_cases.py
+
 fixture:  ## generate synthetic practice data in data/fixture/
 	$(PY) tools/make_fixture.py --out data/fixture
 
@@ -28,6 +31,9 @@ walkthrough:  ## print the guided tutorial
 
 todo:  ## list everything outstanding
 	$(PY) tools/todo.py
+
+yours:  ## list the places where you write your own code
+	$(PY) tools/todo.py --yours
 
 blockers:  ## list only the things that must be resolved before trusting a number
 	$(PY) tools/todo.py --blockers

@@ -95,6 +95,7 @@ can be resubmitted later to add more.
 ```bash
 python tools/todo.py --blockers     # what is unfinished, and what only you can do
 python phases/0_harness/smoke_test.py    # is my environment sane?
+python tools/error_analysis.py --run <run> --phase 1   # where did my recall go?
 python -c "from src.exp_log import correlation as c; print(c())"   # is my dev split honest?
 ```
 
