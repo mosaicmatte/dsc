@@ -24,6 +24,7 @@ The four rules
                 calibrated across queries (cross-encoder logits are; raw BM25
                 scores are NOT, they scale with query length).
 ``gap``         cut at the largest relative drop between consecutive scores.
+``mine``        YOUR rule -- see ``my_cutoff`` below. This is where to experiment.
 
 All rules are clamped by ``min_k``/``max_k``, defaulting to 1 and 5. Both bounds
 are load-bearing: an empty answer set scores zero, and a 6-document one also
@@ -69,6 +70,8 @@ def apply_cutoff(
             keep = sum(1 for s in scores if s >= alpha * top)
     elif rule == "threshold":
         keep = sum(1 for s in scores if s >= tau)
+    elif rule == "mine":
+        keep = my_cutoff(ranked, scores)            # <- your code runs here
     elif rule == "gap":
         keep = len(scores)
         best_drop, denom = -1.0, max(abs(scores[0]), 1e-9)
@@ -86,6 +89,39 @@ def apply_cutoff(
     return docs[:keep]
 
 
+# =============================================================================
+# TODO(YOU/phase1): write your own cutoff rule here.
+# -----------------------------------------------------------------------------
+# WHY HERE: this is the highest-leverage code you can write on Task 1. You get
+#   exactly 5 slots per question; Recall is primary and Precision breaks ties.
+#   The four rules above are generic. A rule that uses something specific to THIS
+#   data -- the score gap, how many documents mention the same decree number, the
+#   query's length -- can beat all of them.
+#
+# WHAT TO WRITE: look at `ranked` (a list of (doc_id, score) pairs, best first)
+#   and return how many of them to keep, as an int. Everything else -- clamping
+#   to 1..5, de-duplication -- is handled for you by apply_cutoff().
+#
+# IDEAS, easiest first:
+#   * keep documents whose score is within X of the top score (absolute, not ratio)
+#   * keep 1 if scores[0] is far above scores[1], else keep 3
+#   * combine two of the rules above (e.g. ratio, but never more than `gap` says)
+#
+# HOW TO TEST IT:
+#   python phases/1_bm25/cutoff_sweep.py #       --run work/experiments/runs/<your-run>.jsonl --rule mine
+#   Compare against the `ratio` rows. If it does not beat them, say so in the log
+#   -- a rule that did not work is still a row in the paper.
+#
+# PYTHON NOTE (from C++): `ranked` is like std::vector<std::pair<string,double>>.
+#   `scores[0]` is the highest score. `len(scores)` is .size(). Return an int.
+# =============================================================================
+def my_cutoff(ranked: Ranked, scores: List[float]) -> int:
+    """Return how many of `ranked` to keep. Delete the line below and write yours."""
+    raise NotImplementedError(
+        "TODO(YOU/phase1): implement my_cutoff in src/cutoff.py, "
+        "then run cutoff_sweep.py --rule mine")
+
+
 def apply_to_run(run: Dict[str, Ranked], **kw) -> Dict[str, List[str]]:
     return {qid: apply_cutoff(r, **kw) for qid, r in run.items()}
 
@@ -101,6 +137,7 @@ def sweep(
     alphas: Sequence[float] = (0.50, 0.60, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 0.98),
     min_k: int = 1,
     cap: int = MAX_DOCS_PER_QUERY,
+    include_mine: bool = True,
 ) -> List[Dict]:
     """Score every cutoff configuration on dev. Returns rows sorted best-first.
 
@@ -124,6 +161,14 @@ def sweep(
         rows.append({"rule": "ratio", "param": a, **_slim(s)})
     preds = apply_to_run(run, rule="gap", min_k=min_k, max_k=cap)
     rows.append({"rule": "gap", "param": None, **_slim(metrics.official(preds, qrels))})
+    if include_mine:
+        # your rule from my_cutoff(); skipped silently if you have not written it yet
+        try:
+            preds = apply_to_run(run, rule="mine", min_k=min_k, max_k=cap)
+            rows.append({"rule": "mine", "param": None,
+                         **_slim(metrics.official(preds, qrels))})
+        except NotImplementedError:
+            pass
     rows.sort(key=lambda r: (r["recall"], r["precision"]), reverse=True)
     return rows
 

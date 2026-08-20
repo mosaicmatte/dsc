@@ -137,6 +137,26 @@ A dev split that does not predict the leaderboard is worse than no dev split.
 
 ---
 
+### Task B6 — Write your own code  ← `TODO(YOU/phase1)`
+
+Two marked blocks, both small and self-contained:
+
+| Where | What to write | Test it with |
+|---|---|---|
+| [`src/cutoff.py`](../../src/cutoff.py) `my_cutoff()` | your own rule for how many of the 5 slots to use | `cutoff_sweep.py --rule mine` |
+| [`src/normalize.py`](../../src/normalize.py) `ABBREVIATIONS` | legal shorthand so query and corpus match (`NĐ-CP` ↔ `Nghị định`) | re-run the BM25 baseline, compare recall |
+
+The cutoff rule is the highest-leverage code on this task: five slots, Recall primary,
+Precision as tiebreak. Each block states what to write, gives ideas easiest-first, and
+gives the exact test command. New to Python? See
+[`docs/python_for_cpp.md`](../../docs/python_for_cpp.md).
+
+```bash
+python tools/todo.py --yours
+```
+
+---
+
 ## PART C — Self-check
 
 1. What does `b = 0` mean, mechanically?

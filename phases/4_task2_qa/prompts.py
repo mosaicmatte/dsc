@@ -66,6 +66,28 @@ TEMPLATES: Dict[str, str] = {
         "giữ nguyên cách diễn đạt của văn bản gốc.\n"
         "Trả lời:",
 
+    # =========================================================================
+    # TODO(YOU/phase4): write your own prompt here, then measure it.
+    # -------------------------------------------------------------------------
+    # WHY HERE: METEOR is recall-weighted and the gold answers have a very
+    #   consistent shape ("Theo <căn cứ> quy định: - ... - ..."). Prompt wording
+    #   is the cheapest lever in Phase 4 -- far cheaper than fine-tuning.
+    #
+    # WHAT TO WRITE: a template string using {context} and {question}. Look at 20
+    #   real gold answers in the training data first and copy their structure.
+    #
+    # HOW TO TEST IT:
+    #   python phases/4_task2_qa/ablate_context.py --model <m> --prompts yours mimic grounded
+    #   `mimic` is the one to beat.
+    #
+    # PYTHON NOTE (from C++): triple quotes """...""" span lines; .format() fills
+    #   in {context} and {question}. Keep both placeholders or it will crash.
+    # =========================================================================
+    "yours":
+        "Các đoạn văn bản pháp luật:\n{context}\n\n"
+        "Câu hỏi: {question}\n"
+        "Trả lời:",   # <- TODO(YOU/phase4): make this your own
+
     "concise":
         "Các đoạn văn bản pháp luật:\n{context}\n\n"
         "Câu hỏi: {question}\n\n"

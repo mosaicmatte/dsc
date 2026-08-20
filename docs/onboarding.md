@@ -20,6 +20,9 @@ Phase 0 + 1 chain over it, and checks the numbers behave (recall monotone in set
 precision falling, ratio cutoff producing variable-length sets). It writes only to a
 temp directory. If it passes, your environment can run Phases 0–1.
 
+**Coming from C++ and new to Python?** Read
+[`python_for_cpp.md`](python_for_cpp.md) first — it covers only what this repo uses.
+
 Read, in this order:
 1. this file
 2. [`docs/glossary.md`](glossary.md) — every term used in the phase READMEs

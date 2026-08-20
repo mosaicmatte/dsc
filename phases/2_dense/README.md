@@ -177,6 +177,19 @@ parameter total as you go.
 
 ---
 
+### Task B7 — Write your own code  ← `TODO(YOU/phase2)`
+
+[`phases/2_dense/mine_hard_negatives.py`](mine_hard_negatives.py) `select_negatives()` —
+choose which candidates become training negatives. Which negatives you train on matters
+more than almost any hyperparameter here, and the default (take the top `n_neg`) is the
+obvious thing rather than the best thing.
+
+```bash
+python tools/todo.py --yours
+```
+
+---
+
 ## PART C — Self-check
 
 1. Using **your actual numbers** from `analysis/dataset_stats.md`: how many

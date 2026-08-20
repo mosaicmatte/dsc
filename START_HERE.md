@@ -21,12 +21,22 @@ python phases/0_harness/smoke_test.py      # verifies your install end-to-end
 
 Then read, in this order:
 
+0. **[`docs/python_for_cpp.md`](docs/python_for_cpp.md)** — **if you know C++ but not
+   Python, start here** (25 min). It covers only what this repo uses, mapped from C++.
 1. **[`docs/onboarding.md`](docs/onboarding.md)** — how the repo fits together (15 min)
 2. **[`docs/walkthrough.md`](docs/walkthrough.md)** — run the entire pipeline on synthetic
-   data, right now, before BTC's data arrives (40 min)
+   data, right now (40 min)
 3. **[`phases/0_harness/README.md`](phases/0_harness/README.md)** — and begin
 
 Keep **[`docs/glossary.md`](docs/glossary.md)** open in a tab.
+
+> **You do not need to be fluent in Python to contribute.** Phases 0 and 1 are mostly
+> running commands and reading numbers. When you are ready to write code, the places to
+> do it are marked and self-contained:
+> ```bash
+> python tools/todo.py --yours
+> ```
+> Each block says what to write, gives ideas, and gives the exact command to test it.
 
 ---
 
@@ -106,6 +116,8 @@ recall = mean([ |truth & pred| / |truth| if 0 < len(pred) <= 5 else 0 ])
 
 | Situation | Go to |
 |---|---|
+| Python syntax you do not recognise | [`docs/python_for_cpp.md`](docs/python_for_cpp.md) |
+| you want to write some code | `python tools/todo.py --yours` |
 | something looks broken | [`docs/troubleshooting.md`](docs/troubleshooting.md) — symptoms → diagnosis |
 | a term you do not know | [`docs/glossary.md`](docs/glossary.md) |
 | a result surprised you | [`docs/reference/`](docs/reference/) — the depth behind each phase |

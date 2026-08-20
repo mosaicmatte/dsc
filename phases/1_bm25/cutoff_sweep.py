@@ -41,6 +41,8 @@ def main():
     ap.add_argument("--run", required=True)
     ap.add_argument("--queries", default="data/processed/queries_dev.jsonl")
     ap.add_argument("--max-k", type=int, default=5)
+    ap.add_argument("--rule", default="all", choices=["all", "mine"],
+                    help="'mine' highlights your own rule from src/cutoff.my_cutoff")
     ap.add_argument("--cap", type=int, default=5)
     ap.add_argument("--plot", action="store_true")
     ap.add_argument("--out", default="work/analysis/fig_cutoff_sweep.png")
@@ -49,7 +51,13 @@ def main():
 
     run = io_utils.load_run(a.run)
     qrels = io_utils.qrels(io_utils.load_queries(a.queries))
-    rows = cutoff.sweep(run, qrels, max_k=a.max_k, cap=a.cap)
+    rows = cutoff.sweep(run, qrels, max_k=a.max_k, cap=a.cap,
+                        include_mine=a.rule in ("all", "mine"))
+    if a.rule == "mine":
+        if not any(r["rule"] == "mine" for r in rows):
+            print("Your rule is not implemented yet — write my_cutoff() in "
+                  "src/cutoff.py (see the TODO(YOU/phase1) block), then re-run.\n"
+                  "Showing the built-in rules meanwhile.\n")
 
     hdr = f"{'rule':<8} {'param':>7} {'recall':>8} {'prec':>8} {'f1':>8} {'|set|':>7}"
     print(hdr); print("-" * len(hdr))

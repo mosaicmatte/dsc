@@ -52,7 +52,7 @@ phases/              THE WORK — six folders, numbered in the order you do them
   4_task2_qa/        09–14/09   LegalQA
   5_freeze/          15–18/09   freeze, package, submit
 
-docs/                onboarding, walkthrough, glossary, troubleshooting, todo
+docs/                python_for_cpp, onboarding, walkthrough, glossary, troubleshooting
   reference/         optional depth: derivations, failure modes, reading list
 src/                 shared library — read it, rarely edit it
 tools/               todo list, fixture generator, error analysis

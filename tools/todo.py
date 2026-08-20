@@ -13,6 +13,10 @@ THE TAXONOMY
                                 crashes without them; the paper cannot be written
                                 with them missing.
 
+  TODO(YOU/<phase>)             A place to WRITE YOUR OWN CODE. Each one says what
+                                to write, gives ideas, and gives the exact command
+                                to test it. Start here if you are new.
+
   TODO(OPTIONAL/...)            Improvements worth doing if time allows.
 
 Anything left as a bare `TODO` without a category is listed as UNCATEGORISED so
@@ -20,6 +24,7 @@ it cannot hide.
 
 USAGE
   python tools/todo.py                 # everything, grouped
+  python tools/todo.py --yours         # places to write your own code
   python tools/todo.py --blockers      # only the hard gates
   python tools/todo.py --phase 0       # only phase 0
   python tools/todo.py --count         # one line, for a status check
@@ -37,7 +42,7 @@ BARE = re.compile(r"TODO(?!\()(?!\.md)")
 SKIP_DIRS = {".git", ".venv", "__pycache__", "node_modules", "dist", "data"}
 SKIP_FILES = {"todo.py", "TODO.md"}
 EXTS = {".py", ".md", ".yaml", ".yml", ".sh"}
-ORDER = ["BLOCKER", "TEAM", "OPTIONAL", "UNCATEGORISED"]
+ORDER = ["YOU", "BLOCKER", "TEAM", "OPTIONAL", "UNCATEGORISED"]
 
 
 def scan(root="."):
@@ -69,6 +74,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--blockers", action="store_true")
+    ap.add_argument("--yours", action="store_true",
+                    help="only the places where you write your own code")
     ap.add_argument("--phase", default=None)
     ap.add_argument("--count", action="store_true")
     ap.add_argument("--root", default=os.path.dirname(os.path.dirname(
@@ -78,6 +85,8 @@ def main():
     items = scan(a.root)
     if a.blockers:
         items = [i for i in items if i[0] == "BLOCKER"]
+    if a.yours:
+        items = [i for i in items if i[0] == "YOU"]
     if a.phase:
         items = [i for i in items if a.phase in i[1]]
 
@@ -91,7 +100,10 @@ def main():
         if not group:
             continue
         print(f"\n{'='*78}\n{kind}  ({len(group)})")
-        if kind == "BLOCKER":
+        if kind == "YOU":
+            print("write your own code here — each block says what to write, "
+                  "gives ideas, and gives the command to test it")
+        elif kind == "BLOCKER":
             print("only you can do these — they depend on BTC data, code or model cards")
         elif kind == "TEAM":
             print("analysis and writing — the paper cannot be assembled without them")

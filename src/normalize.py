@@ -170,6 +170,46 @@ def batch_tokenize(texts: Iterable[str], **kw) -> List[List[str]]:
     return [tokenize(t, **kw) for t in texts]
 
 
+# =============================================================================
+# TODO(YOU/phase1): add legal-domain text handling here.
+# -----------------------------------------------------------------------------
+# WHY HERE: `normalize()` above is generic Vietnamese cleanup. It knows nothing
+#   about legal writing. The corpus and the questions often say the SAME thing
+#   differently, and every mismatch is a retrieval miss:
+#       "NĐ-CP"  vs  "Nghị định"
+#       "Đ.113"  vs  "Điều 113"
+#       "BLLĐ"   vs  "Bộ luật Lao động"
+#   Expanding those makes BM25 match where it currently misses.
+#
+# WHAT TO WRITE: take `text`, return `text` with substitutions applied. Add pairs
+#   to ABBREVIATIONS below, or write your own logic. It is called for BOTH the
+#   corpus and the questions, so a rule always applies to both sides.
+#
+# CAREFUL: only add a rule you are confident about. Expanding "khoản" -> "k."
+#   the WRONG way round would break matches that currently work.
+#
+# HOW TO TEST IT:
+#   1. python -c "import sys;sys.path.insert(0,'.');from src.normalize import \
+#          expand_legal_abbreviations as e;print(e('Theo NĐ-CP 100/2019'))"
+#   2. Re-run the BM25 baseline and compare recall in work/experiments/runs.csv.
+#      If it does not go up, revert it -- and log that it did not help.
+#
+# PYTHON NOTE (from C++): a dict is std::unordered_map. `.items()` iterates
+#   key/value pairs. `str.replace(a, b)` returns a NEW string (strings are
+#   immutable), so you must assign the result back.
+# =============================================================================
+ABBREVIATIONS = {
+    # "nđ-cp": "nghị định",     # <- uncomment / add your own, then measure
+}
+
+
+def expand_legal_abbreviations(text: str) -> str:
+    """Expand legal shorthand so query and corpus use the same words."""
+    for short, full in ABBREVIATIONS.items():
+        text = text.replace(short, full)
+    return text
+
+
 def encoder_text(text: str, requires_segmentation: bool,
                  segmenter: str = "pyvi") -> str:
     """Prepare text for a neural encoder.

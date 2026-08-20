@@ -141,6 +141,18 @@ Permitted, but it does **not** reduce the base model's parameter count for eligi
 
 ---
 
+### Task B8 — Write your own code  ← `TODO(YOU/phase4)`
+
+[`phases/4_task2_qa/prompts.py`](prompts.py) — the `"yours"` template. Prompt wording is
+the cheapest lever in this phase, far cheaper than fine-tuning. Read 20 real gold answers
+first, then copy their structure; `mimic` is the variant to beat.
+
+```bash
+python phases/4_task2_qa/ablate_context.py --model <m> --prompts yours mimic grounded
+```
+
+---
+
 ## PART C — Self-check
 
 1. Your generator produces fluent, confident, wrong answers. Name the two distinct root

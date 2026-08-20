@@ -51,6 +51,37 @@ sys.path.insert(0, os.path.abspath(  # repo root: phases/<n>_<name>/ -> ../..
 from src import io_utils  # noqa: E402
 
 
+# =============================================================================
+# TODO(YOU/phase2): choose which candidates become training negatives.
+# -----------------------------------------------------------------------------
+# WHY HERE: which negatives you train on matters more than almost any
+#   hyperparameter (see docs/reference/03_dense_retrieval.md §3-4). The default
+#   below takes the first `n_neg` candidates, or samples randomly. You can
+#   probably do better.
+#
+# WHAT TO WRITE: given `candidates` (doc ids the retriever ranked highly but
+#   which are NOT labelled relevant, already filtered by --skip-top and
+#   --margin), return the ones to train against, as a list of at most `n_neg`.
+#
+# IDEAS:
+#   * spread them across ranks (one from 3-10, one from 10-25, one from 25-50)
+#     instead of taking the hardest ones only -- "hardest" often means
+#     "unlabelled positive"
+#   * prefer negatives from the same legal area as the positive
+#   * drop candidates whose text is nearly identical to the positive
+#
+# HOW TO TEST IT: mine, then READ them, then retrain and compare on dev:
+#   python phases/2_dense/mine_hard_negatives.py --run <run> --out <pairs> --inspect 10
+#
+# PYTHON NOTE (from C++): `candidates[a:b]` is a slice (a sub-vector).
+#   `rng.sample(xs, n)` picks n distinct elements at random.
+# =============================================================================
+def select_negatives(candidates, n_neg, rng, positive_id=None, dtext=None):
+    """Pick which of `candidates` to train against. Default: the top n_neg."""
+    # TODO(YOU/phase2): replace this with your own strategy and measure it.
+    return candidates[:n_neg]
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -98,7 +129,7 @@ def main():
         if not cands:
             n_no_cands += 1
             continue
-        negs = cands[:a.n_neg] if len(cands) <= a.n_neg else rng.sample(cands, a.n_neg)
+        negs = select_negatives(cands, a.n_neg, rng, dtext=dtext)
         for pos in rel:
             if pos not in dtext:
                 continue
