@@ -44,7 +44,7 @@ Keep **[`docs/glossary.md`](docs/glossary.md)** open in a tab.
 
 ```
 phases/       ← THE WORK. Six folders, numbered in the order you do them.
-docs/         ← how to learn it, plus reference depth and troubleshooting
+docs/         ← how to learn it, reference depth, troubleshooting, teamwork.md
 src/          ← shared library. Read it; you will rarely edit it.
 tools/        ← utilities: todo list, fixture generator, error analysis
 data/         ← put BTC's files in data/raw/. Never committed.
@@ -123,6 +123,7 @@ recall = mean([ |truth & pred| / |truth| if 0 < len(pred) <= 5 else 0 ])
 | a term you do not know | [`docs/glossary.md`](docs/glossary.md) |
 | a result surprised you | [`docs/reference/`](docs/reference/) — the depth behind each phase |
 | "what is left to do?" | [`docs/todo.md`](docs/todo.md) |
+| "how do I get my result to the rest of the team?" | [`docs/teamwork.md`](docs/teamwork.md) — what goes through Git, what never does |
 | "which run produced this?" | `work/experiments/runs.csv` |
 
 ## Five rules that will save you a week

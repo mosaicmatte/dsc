@@ -25,8 +25,12 @@ work/experiments/runs/*
 !work/experiments/runs/.gitkeep
 work/experiments/predictions/*
 !work/experiments/predictions/.gitkeep
+# submission.zip IS committed: it is small (Task 1 ~22 KB, Task 2 ~2 MB) and it
+# is the one artefact the person who submits cannot regenerate without a GPU.
+# The uncompressed .json beside it is not — it is the same content, 5x bigger.
 work/submissions/*
 !work/submissions/.gitkeep
+!work/submissions/*.zip
 
 # work/configs/ and work/analysis/ ARE committed: frozen configs reproduce runs,
 # and the analysis markdown is the paper's evidence.

@@ -1,0 +1,15 @@
+# runs.csv is append-only: every script adds a line at the end and never edits
+# an existing one. With five people pushing runs, git would raise a conflict on
+# almost every merge — always with the same resolution, "keep both lines".
+# The built-in `union` driver does exactly that, automatically.
+#
+# If you ever see a conflict in runs.csv anyway, the fix is still: keep BOTH
+# sides, delete the <<<<<<< ======= >>>>>>> markers. Never pick one side.
+work/experiments/runs.csv merge=union
+
+# Same reasoning: one qid per line, appended.
+data/processed/quarantine_*.jsonl merge=union
+
+# Keep line endings sane across Windows/macOS/Linux machines.
+* text=auto eol=lf
+*.zip binary
