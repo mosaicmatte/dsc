@@ -41,7 +41,7 @@ Nếu một thứ đáng để Khôi nhận, nó đáng được commit.
 
 ---
 
-## Quy trình của mỗi người
+## Quy trình của mỗi người — một lệnh
 
 ### 1. Làm trên nhánh của mình, không làm thẳng trên `main`
 
@@ -57,22 +57,53 @@ Năm người cùng sửa `main` thì sẽ đè lên nhau. Nhánh riêng thì kh
 
 Script tự ghi một dòng vào `runs.csv`. Không cần làm gì thêm.
 
-### 3. Commit và push
+### 3. Nộp cho nhóm
 
 ```bash
-git add work/experiments/runs.csv work/configs/ work/analysis/
-git add src/ phases/                          # nếu có sửa code
-git commit -m "bm25: quét lưới k1/b, dev_R 0.741 -> 0.7683"
-git push -u origin thu/bm25-grid
+make send
 ```
 
-Trong câu commit **luôn có con số**. `"sửa bm25"` không nói gì;
-`"dev_R 0.741 -> 0.7683"` nói tất cả.
+Chỉ vậy. Lệnh này gọi `tools/handoff.py`, và nó làm giúp toàn bộ phần còn lại:
 
-### 4. Mở Pull Request vào `main`
+* tìm lần chạy có điểm gần nhất trong `runs.csv`;
+* **kiểm tra** — xem mục dưới;
+* chọn đúng những file cần chia sẻ, bỏ qua những file không thuộc loại đó;
+* viết sẵn câu commit **có kèm con số** (`bm25-thu-01: dev_R=0.7683`);
+* commit, push lên nhánh của mình;
+* in ra link mở Pull Request để Khôi gộp.
 
-Trên GitHub, bấm *Compare & pull request*. Khôi xem rồi gộp. Đây cũng là lúc
-Khôi biết có kết quả mới mà không cần ai nhắn.
+Trước khi commit nó in ra danh sách file và câu commit rồi hỏi lại một lần, nên
+cứ chạy thử thoải mái. Muốn xem trước mà chưa commit gì thì thêm `--check`:
+
+```bash
+python tools/handoff.py --check
+```
+
+Cuối mỗi phase, thêm `--phase` để đính kèm file run cho Khôi chạy phân tích lỗi:
+
+```bash
+python tools/handoff.py --phase 1
+```
+
+### Script sẽ TỪ CHỐI nộp nếu
+
+| Phát hiện | Vì sao chặn |
+|---|---|
+| Đang đứng trên `main` | Năm người sửa cùng một nhánh sẽ đè lên nhau |
+| Lần chạy chưa có điểm trong `runs.csv` | Chưa đo thì chưa có gì để nộp |
+| Có file trong `data/`, `models/`, `indexes/` | Commit rồi thì git giữ mãi mãi, gỡ ra rất khó |
+| File lạ lớn hơn 5 MB | Thường là dữ liệu lọt qua `.gitignore` |
+| File nộp bài sai định dạng | Codabench chấm 0 mà không báo lỗi gì |
+
+Riêng ô cuối, script **mở file zip ra kiểm tra thật**: bên trong đúng một
+`submission.json`, mỗi câu đúng dạng `{"answer": ...}`, Task 1 không quá 5 mã và
+mọi mã đều là chuỗi, Task 2 không có câu trả lời rỗng. Đây đúng là bốn cách một
+bài nộp bị chấm 0 mà nhìn bằng mắt không thấy gì sai.
+
+### 4. Mở Pull Request
+
+Script in sẵn link. Bấm vào, viết một dòng mô tả, gửi. Khôi xem rồi gộp — đây
+cũng là lúc Khôi biết có kết quả mới mà không cần ai nhắn.
 
 ### 5. Ghi một dòng vào tài liệu của cặp
 
@@ -80,6 +111,20 @@ Khôi biết có kết quả mới mà không cần ai nhắn.
 phải nơi lưu số — số nằm ở `runs.csv`.
 
 ---
+
+## Máy tự kiểm tra mọi Pull Request
+
+Mỗi PR sẽ tự chạy `.github/workflows/ci.yml` trên GitHub, gồm hai việc:
+
+* **`python tests/test_cases.py`** — 114 trường hợp kiểm thử: khớp điểm với
+  chương trình chấm của BTC, giới hạn 5 mã, quy kết lỗi, cắt văn bản, chuẩn hoá
+  tiếng Việt.
+* **`python tools/repo_hygiene.py`** — quét toàn bộ file đang được git theo dõi,
+  chặn dữ liệu lọt vào repo, file quá lớn, và file nộp bài sai định dạng.
+
+Nếu ô kiểm tra trên PR hiện màu đỏ thì **đừng gộp**. Bấm vào xem log, nó nói rõ
+file nào sai và sai chỗ nào. Chạy trước ở máy mình bằng `make test` và
+`make hygiene`.
 
 ## `runs.csv` bị xung đột thì làm sao
 
@@ -107,12 +152,12 @@ mở thì repo phình rất nhanh).
 Nên quy ước: **cuối mỗi phase, commit đúng một file — bản tốt nhất.**
 
 ```bash
-git add -f work/experiments/runs/<run_id_tot_nhat>.jsonl
-git commit -m "run: bản tốt nhất Phase 1 để Khôi phân tích lỗi"
+python tools/handoff.py --phase 1
 ```
 
-`-f` là bắt buộc, vì nó ghi đè `.gitignore` cho đúng một file đó. Đừng bỏ chặn
-cả thư mục.
+Script tự tìm file run của lần chạy đó và thêm bằng `git add -f` — `-f` là bắt
+buộc vì nó ghi đè `.gitignore` cho đúng một file. Đừng bỏ chặn cả thư mục:
+mỗi lần chạy sinh một file mới, để mở thì repo phình rất nhanh.
 
 ---
 
@@ -154,11 +199,16 @@ cần `git add work/submissions/<ten>.zip` cùng lúc với `runs.csv`.
 
 ## Bảng tra nhanh — "tôi vừa chạy xong, giờ làm gì"
 
-| Vừa làm gì | Commit cái gì |
+Trong hầu hết trường hợp câu trả lời là `make send`. Bảng này để biết nó đang
+làm gì thay mình, và khi nào cần thêm gì.
+
+| Vừa làm gì | Gõ gì |
 |---|---|
-| Chạy một thí nghiệm | `runs.csv` + `work/configs/` |
-| Sửa code | thêm `src/` hoặc `phases/` |
-| Tạo file nộp bài | thêm `work/submissions/*.zip` |
-| Xong một phase | thêm `work/analysis/*.md` và `git add -f` file run tốt nhất |
-| Tải dữ liệu BTC về | **không commit gì cả** — dữ liệu không bao giờ vào Git |
-| Huấn luyện xong một mô hình | **không commit trọng số** — commit config đã dùng để huấn luyện |
+| Chạy một thí nghiệm | `make send` |
+| Sửa code | `make send` — nó tự kèm `src/`, `phases/`, `tools/` |
+| Tạo file nộp bài | `make send` — nó tự kèm file `.zip` và kiểm tra định dạng |
+| Xong một phase | `python tools/handoff.py --phase <n>` — kèm thêm file run |
+| Muốn xem trước mà chưa commit | `python tools/handoff.py --check` |
+| Tải dữ liệu BTC về | **không gõ gì cả** — dữ liệu không bao giờ vào Git |
+| Huấn luyện xong một mô hình | `make send` — nó kèm config, **không** kèm trọng số |
+| PR đang đỏ | `make test` và `make hygiene` ở máy mình để xem hỏng chỗ nào |

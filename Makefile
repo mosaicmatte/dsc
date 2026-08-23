@@ -1,6 +1,6 @@
 # Convenience targets. Everything here is a plain command you can also type by hand —
 # nothing is hidden, and `make -n <target>` shows you exactly what would run.
-.PHONY: help setup check test fixture walkthrough todo yours blockers log correlation budget clean
+.PHONY: help setup check test fixture walkthrough todo yours blockers log correlation budget send hygiene clean
 
 PY ?= $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 
@@ -46,6 +46,12 @@ correlation:  ## does dev predict the leaderboard? (the Phase 1 gate)
 
 budget:  ## parameter budget against the 4B ceiling
 	$(PY) src/params.py
+
+send:  ## nop ket qua cho nhom: kiem tra, commit, push, in link mo PR
+	$(PY) tools/handoff.py
+
+hygiene:  ## kiem tra repo khong lan du lieu / file lon / bai nop sai dinh dang
+	$(PY) tools/repo_hygiene.py
 
 clean:  ## remove caches and generated runs (keeps runs.csv, configs, analysis)
 	rm -rf data/fixture data/processed/.bm25_* data/processed/.emb_*

@@ -1,0 +1,26 @@
+# Chạy tự động mỗi khi có Pull Request. Bắt những lỗi mà người review dễ bỏ sót.
+name: kiểm tra
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: cài thư viện tối thiểu
+        run: pip install --quiet numpy PyYAML
+
+      - name: bộ test đầy đủ (chấm điểm, giới hạn 5 mã, quy kết lỗi, cắt văn bản)
+        run: python tests/test_cases.py
+
+      - name: kiểm tra vệ sinh repo
+        run: python tools/repo_hygiene.py
