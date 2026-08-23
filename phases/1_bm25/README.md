@@ -120,13 +120,19 @@ python phases/1_bm25/cutoff_sweep.py --run work/experiments/runs/<best>.jsonl --
 ```
 Score top-k for **k = 1…5** (BTC's hard cap — a 6-id answer scores zero) **and** the
 score-ratio rule (keep docs above α × top score).
+
+> **Sweep it for the paper, but submit `top_k --k 5`.** 92% of questions have exactly
+> one gold document, so Recall is 0 or 1 per question and never decreases with more ids
+> up to the cap — 5 is optimal, and Precision only breaks exact Recall ties. The sweep
+> is a real precision/recall figure; it is not a way to climb the leaderboard.
+> See [`docs/reference/10_data_facts.md`](../../docs/reference/10_data_facts.md) §2.
 Plot Precision, Recall and the official score against the cutoff.
 **Done when:** `analysis/fig_cutoff_sweep.png` exists and you can explain the crossover.
 
 ### Task B5 — Submit to Codabench, then check correlation  ← the gate
 ```bash
-python phases/1_bm25/make_submission.py --run experiments/runs/<best>.jsonl \
-    --cutoff ratio --alpha 0.85
+python phases/1_bm25/make_submission.py --run work/experiments/runs/<best>.jsonl \
+    --cutoff top_k --k 5
 # submit, then record what the leaderboard said:
 python -c "from src.exp_log import update_leaderboard as u; u('<run_id>', 0.xxxx)"
 python -c "from src.exp_log import correlation as c; print(c())"

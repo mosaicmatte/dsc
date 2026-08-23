@@ -127,13 +127,23 @@ Exactly as in Phase 0. The answer format determines the entire approach; **do no
 **Done when:** you can state the metric, the required output shape, and whether answers
 are spans or free text, each with a line reference.
 
-### Task B2 — Port the Task 1 retriever and measure it on Task 2 data
+### Task B2 — Stand up a retriever for Task 2 and measure it
 ```bash
 python phases/4_task2_qa/retrieval_stage.py --queries data/processed/task2_dev.jsonl \
-    --model <task1 best> --reranker <task1 best>
+    --model AITeamVN/Vietnamese_Embedding
 ```
-**Done when:** you know Task 2's recall@1/@3/@5. That number is the ceiling on every
-reader below, and it belongs in the log before any reader work starts.
+**Not a Task 1 checkpoint.** BTC's 20/08 ruling forbids using Task 1 data for Task 2, and
+a bi-encoder fine-tuned in Phase 2 *is* Task 1 data. Use an off-the-shelf model, or one
+fine-tuned on Task 2 data only. The corpus is shared and fine to use — BTC ships the
+identical `selected-contexts.zip` to both tasks. The script refuses the detectable
+violations.
+
+**And note what you do not have:** Task 2 ships **no retrieval labels**, so there is no
+recall@k to compute directly and no (query, document) pairs to train on. Decide
+consciously how you will judge retrieval quality — a proxy from the gold answers, or
+accepting BM25 unmeasured — and write the decision in the log.
+**Done when:** the retriever is chosen, the reason is in the log, and the reader work
+downstream knows what it is being handed.
 
 ### Task B3 — Baseline A: extractive
 ```bash
