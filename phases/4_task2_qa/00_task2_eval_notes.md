@@ -73,7 +73,7 @@ print(f'{hit}/{len(d)} answers appear verbatim in their context')"
 > ANSWER:
 > - Filename: submission.json  Zipped: submission.zip (Line ref: make_submission_task2.py:7)
 > - Must every question appear? Yes. If otherwise, the scorer throws an exception, causing the submission to fail. (Line ref: scoring_legalqa.py:48-50)
-> - Is an empty answer allowed, and what does it score? Yes, it scores 0.0.
+> - Is an empty answer allowed, and what does it score? Yes, but it scores 0.0.
 > - Is a supporting-passage id also required? No. Only the text answer string is required. (phases/0_harness/btc_eval/scoring_legalqa.py:38)
 
 ## Q5. Is retrieval scored separately, or only the final answer?
