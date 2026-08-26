@@ -18,8 +18,10 @@ any reader code** — the answer format determines whether Baseline A is even po
 ## Q1. What is the answer field, exactly?
 
 ```jsonc
-{"id": {"question": "Trách nhiệm của tổ chức đấu thầu...",
-        "answer": "Theo Điều 37 Nghị định 153/2020/NĐ-CP, được sửa đổi bởi khoản 26 Điều 1 Nghị định 65/2022/NĐ-CP quy định cụ thể:\n- Tuân thủ quy định...\n- Thực hiện chế độ báo cáo..."}}
+ "82051": {
+        "question": "Vận chuyển động vật ra khỏi địa bàn cấp tỉnh mà không có Giấy chứng nhận kiểm dịch động vật, sản phẩm động vật thì bị xử phạt thế nào?",
+        "answer": "Căn cứ khoản 3, khoản 5 Điều 17 Nghị định 90/2017/NĐ-CP, được sửa đổi bởi điểm a khoản 9 Điều 3 Nghị định 07/2022/NĐ-CP, khoản 7 Điều 2 Nghị định 04/2020/NĐ-CP quy định về vi phạm quy định chung về Giấy chứng nhận kiểm dịch động vật, sản phẩm động vật vận chuyển ra khỏi địa bàn cấp tỉnh như sau:\nVi phạm quy định chung về Giấy chứng nhận kiểm dịch động vật, sản phẩm động vật vận chuyển ra khỏi địa bàn cấp tỉnh\n1. Phạt tiền từ 4.000.000 đồng đến 5.000.000 đồng đối với hành vi mua bán, tẩy xóa, sửa chữa Giấy chứng nhận kiểm dịch động vật, sản phẩm động vật.\n2. Phạt tiền từ 5.000.000 đồng đến 6.000.000 đồng đối với hành vi cho thuê, cho mượn, thuê, mượn Giấy chứng nhận kiểm dịch động vật, sản phẩm động vật.\n3. Phạt tiền từ 6.000.000 đồng đến 8.000.000 đồng đối với hành vi không có Giấy chứng nhận kiểm dịch động vật, sản phẩm động vật.\n4. Hình thức xử phạt bổ sung:\nTịch thu Giấy chứng nhận kiểm dịch động vật, sản phẩm động vật đối với hành vi mua bán quy định tại khoản 1, khoản 2 Điều này.\n5. Biện pháp khắc phục hậu quả:\na) Buộc kiểm dịch lại động vật, sản phẩm động vật đối với hành vi vi phạm quy định tại khoản 3 Điều này (trừ giống động vật thủy sản);\nb) Buộc tiêu hủy động vật, sản phẩm động vật đối với hành vi vi phạm quy định tại khoản 3 Điều này trong trường hợp là giống động vật thủy sản; trong trường hợp kiểm dịch lại phát hiện động vật mắc bệnh, sản phẩm động vật mang mầm bệnh truyền nhiễm nguy hiểm thuộc Danh mục bệnh động vật phải công bố dịch.\nTheo đó, người vận chuyển động vật ra khỏi địa bàn cấp tỉnh mà không có Giấy chứng nhận kiểm dịch động vật, sản phẩm động vật với mức phạt tiền từ 6.000.000 đồng đến 8.000.000 đồng.\nĐồng thời người vi phạm còn bị buộc kiểm dịch lại động vật, sản phẩm động vật đối với hành vi vi phạm, trừ giống động vật thủy sản.\nVà buộc tiêu hủy động vật trong trường hợp là giống động vật thủy sản. Trong trường hợp kiểm dịch lại phát hiện động vật mắc bệnh, sản phẩm động vật mang mầm bệnh truyền nhiễm nguy hiểm thuộc Danh mục bệnh động vật phải công bố dịch."
+    },
 ```
 
 > Field name: "answer"
@@ -61,9 +63,6 @@ print(f'{hit}/{len(d)} answers appear verbatim in their context')"
 > ANSWER:
 > - The metrics are **METEOR** and **ROUGE-L**. (Line ref: phases/0_harness/btc_eval/scoring_legalqa.py:6-8)
 > - The answer is **NOT** normalised before comparison. (Line ref: phases/0_harness/btc_eval/scoring_legalqa.py:28)
-
-
-
 
 ## Q4. Output format
 
