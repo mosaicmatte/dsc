@@ -27,9 +27,7 @@ any reader code** — the answer format determines whether Baseline A is even po
 > Type (span / free text / multiple choice / list of ids): free text.
 >
 > Line ref in the data overview: phases/0_harness/btc_eval/scoring_legalqa.py:38
-- Field name: "answer"
-- Type: free text.
-- Line ref in the data overview: phases/0_harness/btc_eval/scoring_legalqa.py:38
+
 ## Q2. Are gold answers verbatim substrings of the retrieved passages?
 
 Check mechanically, do not eyeball it:
