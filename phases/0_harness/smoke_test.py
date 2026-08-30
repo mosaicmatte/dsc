@@ -53,11 +53,11 @@ def make_raw(d):
     corpus, queries, _ = build()
     os.makedirs(f"{d}/contexts", exist_ok=True)
     for i, rec in enumerate(corpus):
-        json.dump(rec, open(f"{d}/contexts/context_{i}.json", "w"), ensure_ascii=False)
+        json.dump(rec, open(f"{d}/contexts/context_{i}.json", "w", encoding="utf-8"), ensure_ascii=False)
     with zipfile.ZipFile(f"{d}/selected-contexts.zip", "w") as z:
         for i in range(len(corpus)):
             z.write(f"{d}/contexts/context_{i}.json", f"context_{i}.json")
-    json.dump(queries, open(f"{d}/train.json", "w"), ensure_ascii=False)
+    json.dump(queries, open(f"{d}/train.json", "w", encoding="utf-8"), ensure_ascii=False)
     return len(corpus), len(queries)
 
 

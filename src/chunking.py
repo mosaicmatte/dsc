@@ -58,8 +58,51 @@ def _split_on(text: str, pattern: re.Pattern) -> List[Tuple[str, str]]:
 
 
 def split_articles(text: str) -> List[Tuple[str, str]]:
-    """Split a văn bản into điều."""
-    return _split_on(text, ARTICLE_RE)
+    """
+    Cắt một văn bản (văn bản) thành các Điều (điều).
+    Nếu văn bản không có cấu trúc "Điều" (như Công văn/Quyết định),
+    hệ thống sẽ tự động chuyển sang Kế hoạch B (Fallback Chunking) 
+    và sinh nhãn (label) tự động dạng số thứ tự.
+    """
+    # Bước 1: Thử cắt bằng hàm mặc định của hệ thống sử dụng ARTICLE_RE
+    chunks = _split_on(text, ARTICLE_RE)
+    
+    # Bước 2: Kiểm tra xem có cắt thành công không
+    # Nếu kết quả trả về chỉ có <= 1 đoạn, nghĩa là không tìm thấy chữ "Điều" nào (Quyết định/Công văn)
+    if len(chunks) <= 1:
+        # Triển khai Kế hoạch B: Cắt theo đoạn văn trống (\n\n)
+        paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+        
+        fallback_chunks = []
+        current_chunk = []
+        current_words = 0
+        chunk_idx = 1  # Dùng làm nhãn (label) ảo cho các đoạn tự động cắt
+        
+        for para in paragraphs:
+            para_words = para.split()
+            para_word_count = len(para_words)
+            
+            # Gộp các đoạn văn lại sao cho độ dài của chunk nằm trong khoảng 250 - 300 từ
+            if current_words + para_word_count <= 300:
+                current_chunk.append(para)
+                current_words += para_word_count
+            else:
+                if current_chunk:
+                    # Ép nhãn chunk_idx về kiểu chuỗi (string) để đồng bộ với định dạng doc_id của hệ thống
+                    fallback_chunks.append((str(chunk_idx), "\n\n".join(current_chunk)))
+                    chunk_idx += 1
+                current_chunk = [para]
+                current_words = para_word_count
+        
+        # Thêm đoạn cuối cùng còn lại vào danh sách
+        if current_chunk:
+            fallback_chunks.append((str(chunk_idx), "\n\n".join(current_chunk)))
+            
+        return fallback_chunks
+        
+    # Nếu cắt thành công theo Điều, trả về kết quả chunks của _split_on bình thường
+    return chunks
+
 
 
 def split_clauses(text: str) -> List[Tuple[str, str]]:

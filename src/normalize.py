@@ -199,15 +199,79 @@ def batch_tokenize(texts: Iterable[str], **kw) -> List[List[str]]:
 #   immutable), so you must assign the result back.
 # =============================================================================
 ABBREVIATIONS = {
-    # "nđ-cp": "nghị định",     # <- uncomment / add your own, then measure
+    # 1. Cơ quan nhà nước tối cao (Sắp xếp từ dài đến ngắn để tránh đè chữ)
+    "vksndtc": "viện kiểm sát nhân dân tối cao",
+    "tandtc": "tòa án nhân dân tối cao",
+    "vksnd": "viện kiểm sát nhân dân",
+    "tand": "tòa án nhân dân",
+    "ubnd": "ủy ban nhân dân",
+    "vks": "viện kiểm sát",
+    "hđnd": "hội đồng nhân dân",
+
+    # 2. Loại văn bản kết hợp cơ quan ban hành (Từ dài đến ngắn)
+    "nđ-cp": "nghị định",
+    "nđ/cp": "nghị định",
+    "nd-cp": "nghị định",
+    "nd/cp": "nghị định",
+    "tt-btc": "thông tư",
+    "tt-byt": "thông tư",
+    "tt-bqp": "thông tư",
+    "tt-bca": "thông tư",
+    "qđ-ttg": "quyết định",
+    "qd-ttg": "quyết định",
+    "qđ-btc": "quyết định",
+    "qd-btc": "quyết định",
+    "qđ-bca": "quyết định",
+    "qd-bca": "quyết định",
+    
+    # Từ viết tắt độc lập cho loại văn bản & chức danh
+    "ttg": "thủ tướng chính phủ",
+    "ttlt": "thông tư liên tịch",
+    "nq": "nghị quyết",
+    "nđ": "nghị định",
+    "qđ": "quyết định",
+    "qd": "quyết định",
+    "tt": "thông tư",
+
+    # 3. Các bộ luật và luật lớn (Từ dài đến ngắn)
+    "bltths": "bộ luật tố tụng hình sự",
+    "blttds": "bộ luật tố tụng dân sự",
+    "bllđ": "bộ luật lao động",
+    "blhs": "bộ luật hình sự",
+    "blds": "bộ luật dân sự",
+
+    # 4. Lĩnh vực Bảo hiểm & Y tế
+    "bhxh": "bảo hiểm xã hội",
+    "bhyt": "bảo hiểm y tế",
+    "bhtn": "bảo hiểm thất nghiệp",
+
+    # 5. Lĩnh vực Thuế, Doanh nghiệp & Hành chính
+    "tnhh": "trách nhiệm hữu hạn",
+    "dntn": "doanh nghiệp tư nhân",
+    "gtgt": "giá trị gia tăng",
+    "tncn": "thu nhập cá nhân",
+    "tndn": "thu nhập doanh nghiệp",
+    "vphc": "vi phạm hành chính",
+    "đkdn": "đăng ký kinh doanh",
+    "dn": "doanh nghiệp",
+
+    # 6. Giáo dục & Đời sống
+    "thpt": "trung học phổ thông",
+
+    # 7. Điều, Khoản, Điểm (Phải có dấu chấm để tránh nhận nhầm ký tự thường)
+    "đ.": "điều ",
+    "k.": "khoản ",
 }
 
 
+
 def expand_legal_abbreviations(text: str) -> str:
-    """Expand legal shorthand so query and corpus use the same words."""
-    for short, full in ABBREVIATIONS.items():
-        text = text.replace(short, full)
-    return text
+    import re
+    text_lower = text.lower()
+    for abbr, full in ABBREVIATIONS.items():
+        pattern = r'(?<!\w)' + re.escape(abbr) + r'(?!\w)'
+        text_lower = re.sub(pattern, full, text_lower)
+    return text_lower
 
 
 def encoder_text(text: str, requires_segmentation: bool,

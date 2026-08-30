@@ -8,3 +8,11 @@ bm25-article-real,2026-08-20,1,1,article,"bm25(k1=1.2,b=0.75,seg=none,agg=max)",
 task2-bm25-passage,2026-08-20,2,4,,task2-retrieval.jsonl,,,top_k=1,0.3583,0.3548,0.3548,,0,,,,"extractive mode=passage; dev_R=METEOR, dev_P=ROUGE-L (Task 2 metrics)"
 task2-bm25-passage-publictest,2026-08-20,2,4,,task2-retrieval-publictest.jsonl,,,top_k=1,,,,,0,,,,extractive mode=passage model=None
 task2-bm25-passage,2026-08-20,2,4,,,,,,,,,PENDING,,,,,"TASK2 SUBMITTED task2-bm25-passage.zip; mean_len=1601w; BM25 top-1 article passage, zero parameters; dev METEOR 0.3548"
+bm25-art-none-thu,2026-08-30,1,1,article,"bm25(k1=1.2,b=0.75,seg=none,agg=None)",-,-,top_k:5,0.0000,0.0000,0.0000,,0,,,,recall@100=0.0000
+bm25-doc-none-thu,2026-08-30,1,1,document,"bm25(k1=1.2,b=0.75,seg=none,agg=None)",-,-,top_k:5,0.0734,0.3467,0.3467,,0,,,,recall@100=0.7274
+bm25-cls-none-thu,2026-08-30,1,1,clause,"bm25(k1=1.2,b=0.75,seg=none,agg=max)",-,-,top_k:5,0.1623,0.7655,0.7655,,0,,,,recall@100=0.9482
+bm25-art-pyvi-thu,2026-08-30,1,1,article,"bm25(k1=1.2,b=0.75,seg=pyvi,agg=max)",-,-,top_k:5,0.1706,0.8031,0.8031,,0,,,,recall@100=0.9594
+bm25-art-none-thu,2026-08-30,1,1,article,"bm25(k1=1.2,b=0.75,seg=none,agg=max)",-,-,top_k:5,0.1628,0.7668,0.7668,,0,,,,recall@100=0.9455
+bm25-doc-pyvi-thu,2026-08-30,1,1,document,"bm25(k1=1.2,b=0.75,seg=pyvi,agg=None)",-,-,top_k:5,0.1309,0.6175,0.6175,,0,,,,recall@100=0.9260
+bm25-doc-none-thu,2026-08-30,1,1,document,"bm25(k1=1.2,b=0.75,seg=none,agg=None)",-,-,top_k:5,0.0734,0.3467,0.3467,,0,,,,recall@100=0.7274
+bm25-art-pyvi-norm-thu,2026-08-30,1,1,article,"bm25(k1=2.0,b=1.0,seg=pyvi,agg=max)",-,-,top_k:5,0.1727,0.8134,0.8134,,0,,,,recall@100=0.9605
